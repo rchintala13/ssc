@@ -961,13 +961,19 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	// Get Irradiance Inputs for now (eventually models can use these directly)
 	weather_header hdr = Irradiance->weatherHeader;
 	weather_data_provider * wdprov = Irradiance->weatherDataProvider.get();
-//	weather_data_provider * wdprovtc = Irradiance->weatherDataProvider.get(); // for cell temperature model
+	weather_record wf_tc; // for cell temperature model
 	std::vector<int> wd_cols;
+	// following 5 weather file columns are only ones not in standard weather records
 	wd_cols.push_back(weather_data_provider::TDRY); // average ambient temperature over timesteps
 	wd_cols.push_back(weather_data_provider::WSPD); 
-	wd_cols.push_back(weather_data_provider::GHI); 
-	wd_cols.push_back(weather_data_provider::DNI); 
-	wd_cols.push_back(weather_data_provider::DHI); 
+	wd_cols.push_back(weather_data_provider::TWET);
+	wd_cols.push_back(weather_data_provider::WDIR);
+	wd_cols.push_back(weather_data_provider::PRES);
+	// these are used to calculed ibeam, iskydiffuse and ignddiff from original weather file
+	// averaging currently has no effect - can if separate values passed to cell temperature model
+//	wd_cols.push_back(weather_data_provider::GHI);
+//	wd_cols.push_back(weather_data_provider::DNI);
+//	wd_cols.push_back(weather_data_provider::DHI);
 	size_t wd_ts_avg = 15; // 15 timestep average
 	int radmode = Irradiance->radiationMode;
 
@@ -1133,7 +1139,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				p_load_full.push_back((ssc_number_t)cur_load);
 				// DC weather file for all timesteps
 //				if (!wdprov->read(&Irradiance->weatherRecord))
-				if (!wdprov->read_average(&Irradiance->weatherRecord,wd_cols,wd_ts_avg))
+				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols,wd_ts_avg))
 					throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
 
 				weather_record wf = Irradiance->weatherRecord;
@@ -1332,7 +1338,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 						double shadedb_dpoa = iskydiff + ignddiff;
 
 						// update cell temperature - unshaded value per Sara 1/25/16
-						double tcell = wf.tdry;
+						double tcell = wf_tc.tdry;
 						if (sunup > 0)
 						{
 							// calculate cell temperature using selected temperature model
@@ -1342,8 +1348,14 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 								stilt, sazi,
 								((double)wf.hour) + wf.minute / 60.0,
 								radmode, Subarrays[nn]->poa.usePOAFromWF);
+							pvinput_t in_tc(ibeam, iskydiff, ignddiff, 0, ipoa[nn],
+								wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+								solzen, aoi, hdr.elev,
+								stilt, sazi,
+								((double)wf_tc.hour) + wf_tc.minute / 60.0,
+								radmode, Subarrays[nn]->poa.usePOAFromWF);
 							// voltage set to -1 for max power
-							(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, -1.0, tcell);
+							(*Subarrays[nn]->Module->cellTempModel)(in_tc, *Subarrays[nn]->Module->moduleModel, -1.0, tcell);
 						}
 						double shadedb_str_vmp_stc = Subarrays[nn]->nModulesPerString * Subarrays[nn]->Module->voltageMaxPower;
 						double shadedb_mppt_lo = PVSystem->Inverter->mpptLowVoltage;
@@ -1606,12 +1618,20 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 									radmode, Subarrays[nn]->poa.usePOAFromWF);
 								pvoutput_t out(0, 0, 0, 0, 0, 0, 0, 0);
 
+
+								pvinput_t in_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+									((double)wf_tc.hour) + wf_tc.minute / 60.0,
+									radmode, Subarrays[nn]->poa.usePOAFromWF);
+
 								//calculate the output power for one module in this subarray at this voltage
 								if (Subarrays[nn]->poa.sunUp)
 								{
-									double tcell = wf.tdry;
+									double tcell = wf_tc.tdry;
 									// calculate cell temperature using selected temperature model
-									(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, V, tcell);
+									(*Subarrays[nn]->Module->cellTempModel)(in_tc, *Subarrays[nn]->Module->moduleModel, V, tcell);
 									// calculate module power output using conversion model previously specified
 									(*Subarrays[nn]->Module->moduleModel)(in, tcell, V, out);
 								}
@@ -1631,8 +1651,9 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 
 					//now calculate power for each subarray on this mppt input. stringVoltage will still be -1 if mismatch calcs aren't enabled, or the value decided by mismatch calcs if they are enabled
 					std::vector<pvinput_t> in{ num_subarrays }; //create arrays for the pv input and output structures because we have to deal with them in multiple loops to check for MPPT clipping
+					std::vector<pvinput_t> in_tc{ num_subarrays }; //create arrays for the pv input and output structures because we have to deal with them in multiple loops to check for MPPT clipping
 					std::vector<pvoutput_t> out{ num_subarrays };
-					double tcell = wf.tdry;
+					double tcell = wf_tc.tdry;
 					for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
 					{
 						int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
@@ -1645,8 +1666,17 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 							radmode, Subarrays[nn]->poa.usePOAFromWF);
 						pvoutput_t out_temp(0, 0, 0, 0, 0, 0, 0, 0);
 						in[nn] = in_temp;
-						out[nn] = out_temp;					
+						out[nn] = out_temp;	
 						
+						pvinput_t in_temp_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+							wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+							solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+							Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+							((double)wf_tc.hour) + wf_tc.minute / 60.0,
+							radmode, Subarrays[nn]->poa.usePOAFromWF);
+						in_tc[nn] = in_temp_tc;
+
+
 						if (Subarrays[nn]->poa.sunUp)
 						{
 							//module voltage value to be passed into module power function. 
@@ -1656,7 +1686,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 							if (stringVoltage != -1) module_voltage = stringVoltage / (double)Subarrays[nn]->nModulesPerString;
 							// calculate cell temperature using selected temperature model
 							// calculate module power output using conversion model previously specified
-							(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
+							(*Subarrays[nn]->Module->cellTempModel)(in_tc[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
 							(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
 						}
 					}
@@ -1709,7 +1739,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 
 									//recalculate power at the correct voltage
 									double module_voltage = avgVoltage / (double)Subarrays[nn]->nModulesPerString;
-									(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
+									(*Subarrays[nn]->Module->cellTempModel)(in_tc[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
 									(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
 
 									if (iyear == 0)	mpptVoltageClipping[nn] -= out[nn].Power; //subtract the power that remains after voltage clipping in order to get the total loss. if no power was lost, all the power will be subtracted away again.
@@ -1965,9 +1995,8 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				cur_load = p_load_full[idx];
 
 				// AC weather file reader
-
 //				if (!wdprov->read(&Irradiance->weatherRecord))
-				if (!wdprov->read_average(&Irradiance->weatherRecord, wd_cols, wd_ts_avg))
+				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols, wd_ts_avg))
 					throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
 
 				weather_record wf = Irradiance->weatherRecord;

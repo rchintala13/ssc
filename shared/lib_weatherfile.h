@@ -216,7 +216,7 @@ public:
 	/// reads one more record
 	virtual bool read(weather_record *r) = 0;
 	/// reads one more record
-	virtual bool read_average(weather_record *r, std::vector<int> &cols, size_t &num_timesteps)= 0;
+	virtual bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps)= 0;
 
 
 	// some helper methods for ease of use of this class
@@ -263,7 +263,7 @@ public:
 	bool open( const std::string &file, bool header_only = false );
 
 	bool read( weather_record *r ); 
-	bool read_average(weather_record *r, std::vector<int> &cols, size_t &num_timesteps);
+	bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps);
 	bool has_data_column( size_t id );
 	
 	static std::string normalize_city( const std::string &in );

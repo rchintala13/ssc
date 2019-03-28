@@ -1014,11 +1014,12 @@ bool weatherdata::read( weather_record *r )
 		return false;
 }
 
-bool weatherdata::read_average(weather_record *r, std::vector<int> &cols, size_t &num_timesteps)
+bool weatherdata::read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps)
 {
 	if (m_index < m_data.size())
 	{
 		*r = *m_data[m_index++];
+		*r_avg = *r;
 
 		// average columns requested
 		int start = (int)m_index - (int)num_timesteps / 2;
@@ -1126,61 +1127,61 @@ bool weatherdata::read_average(weather_record *r, std::vector<int> &cols, size_t
 			switch (cols[i])
 			{
 			case YEAR:
-				r->year = (int)col_val;
+				r_avg->year = (int)col_val;
 				break;
 			case MONTH:
-				r->month = (int)col_val;
+				r_avg->month = (int)col_val;
 				break;
 			case DAY:
-				r->day = (int)col_val;
+				r_avg->day = (int)col_val;
 				break;
 			case HOUR:
-				r->hour = (int)col_val;
+				r_avg->hour = (int)col_val;
 				break;
 			case MINUTE:
-				r->minute = col_val;
+				r_avg->minute = col_val;
 				break;
 			case GHI:
-				r->gh = col_val;
+				r_avg->gh = col_val;
 				break;
 			case DNI:
-				r->dn = col_val;
+				r_avg->dn = col_val;
 				break;
 			case DHI:
-				r->df = col_val;
+				r_avg->df = col_val;
 				break;
 			case POA:
-				r->poa = col_val;
+				r_avg->poa = col_val;
 				break;
 			case TDRY:
-				r->tdry = col_val;
+				r_avg->tdry = col_val;
 				break;
 			case TWET:
-				r->twet = col_val;
+				r_avg->twet = col_val;
 				break;
 			case TDEW:
-				r->tdew = col_val;
+				r_avg->tdew = col_val;
 				break;
 			case WSPD:
-				r->wspd = col_val;
+				r_avg->wspd = col_val;
 				break;
 			case WDIR:
-				r->wdir = col_val;
+				r_avg->wdir = col_val;
 				break;
 			case RH:
-				r->rhum = col_val;
+				r_avg->rhum = col_val;
 				break;
 			case PRES:
-				r->pres = col_val;
+				r_avg->pres = col_val;
 				break;
 			case SNOW:
-				r->snow = col_val;
+				r_avg->snow = col_val;
 				break;
 			case ALB:
-				r->alb = col_val;
+				r_avg->alb = col_val;
 				break;
 			case AOD:
-				r->aod = col_val;
+				r_avg->aod = col_val;
 				break;
 			default:
 				break;
