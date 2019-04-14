@@ -1014,22 +1014,47 @@ bool weatherdata::read( weather_record *r )
 		return false;
 }
 
-bool weatherdata::read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps)
+bool weatherdata::read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps, int method)
 {
 	if (m_index < m_data.size())
 	{
 		*r = *m_data[m_index++];
 		*r_avg = *r;
 
-		// average columns requested
-		int start = (int)m_index - (int)num_timesteps / 2;
-		if (start < 0)
-			start = 0;
-		if (((size_t)start + num_timesteps) > m_nRecords)
-			start = (int)m_nRecords - (int)num_timesteps;
-		if (start < 0)
-			start = 0;
+		int start = 0;
+		int num_steps = (int)num_timesteps;
 
+		switch (method)
+		{
+			case AVG_CENTER:
+			{ // always averging num_timesteps
+				start = (int)m_index - (int)num_timesteps / 2;
+				if (start < 0)
+					start = 0;
+				if (((size_t)start + num_timesteps) > m_nRecords)
+					start = (int)m_nRecords - (int)num_timesteps;
+				if (start < 0)
+					start = 0;
+			}
+			break;
+			case AVG_FORWARD:
+			{ // always starts at current index and averages up to num_timesteps
+				start = (int)m_index;
+				if (((size_t)start + num_timesteps) > m_nRecords)
+					num_steps = (int)m_nRecords - start;
+			}
+			break;
+			case AVG_BACK: default:
+			{  // tries to start num_timesteps in past if possible
+				start = (int)m_index - (int)num_timesteps;
+				if (start < 0)
+				{
+					start = 0;
+					num_steps = (int)m_index+1;
+				}
+			}
+			break;
+		}
 
 		for (size_t i = 0; i < cols.size(); i++)
 		{
@@ -1037,7 +1062,7 @@ bool weatherdata::read_average(weather_record *r, weather_record *r_avg, std::ve
 			int n_vals = 0;
 			if (cols[i] >= YEAR && cols[i] < _MAXCOL_)
 			{
-				for (size_t j = (size_t)start; j < start + num_timesteps && j < m_nRecords; j++)
+				for (size_t j = (size_t)start; j < (size_t)(start + num_steps) && j < m_nRecords; j++)
 				{
 					switch (cols[i])
 					{

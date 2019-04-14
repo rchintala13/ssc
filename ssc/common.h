@@ -139,6 +139,8 @@ public:
 
 class weatherdata : public weather_data_provider
 {
+	enum { AVG_BACK, AVG_CENTER, AVG_FORWARD };
+	
 	std::vector< weather_record* > m_data;
 	std::vector<size_t> m_columns;
 
@@ -162,7 +164,7 @@ public:
 
 	void set_counter_to(size_t cur_index);
 	bool read(weather_record *r); // reads one more record	
-	bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps); // reads one more record and performs averaging over timesteps	
+	bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps, int method=AVG_BACK); // reads one more record and performs averaging over timesteps	
 	bool has_data_column(size_t id);
 };
 

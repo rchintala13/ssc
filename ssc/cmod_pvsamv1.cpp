@@ -1139,7 +1139,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				p_load_full.push_back((ssc_number_t)cur_load);
 				// DC weather file for all timesteps
 //				if (!wdprov->read(&Irradiance->weatherRecord))
-				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols,wd_ts_avg))
+				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols,wd_ts_avg, weatherfile::AVG_BACK))
 					throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
 
 				weather_record wf = Irradiance->weatherRecord;
@@ -1996,7 +1996,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 
 				// AC weather file reader
 //				if (!wdprov->read(&Irradiance->weatherRecord))
-				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols, wd_ts_avg))
+				if (!wdprov->read_average(&Irradiance->weatherRecord, &wf_tc, wd_cols, wd_ts_avg, weatherfile::AVG_BACK))
 					throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
 
 				weather_record wf = Irradiance->weatherRecord;

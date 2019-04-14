@@ -1509,7 +1509,7 @@ bool weatherfile::open(const std::string &file, bool header_only)
 	return true;
 }
 
-bool weatherfile::read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps)
+bool weatherfile::read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps, int method)
 {
 	if (r && r_avg && m_index < m_nRecords && num_timesteps > 0 && num_timesteps < m_nRecords)
 	{
@@ -1535,23 +1535,48 @@ bool weatherfile::read_average(weather_record *r, weather_record *r_avg, std::ve
 
 		*r_avg = *r;
 
-		// average columns requested
-		int start = (int)m_index - (int)num_timesteps / 2;
-		if (start < 0) 
-			start = 0;
-		if (((size_t)start + num_timesteps) > m_nRecords)
-			start = (int)m_nRecords - (int)num_timesteps;
-		if (start < 0) 
-			start = 0;
+		int start = 0;
+		int num_steps = (int)num_timesteps;
 
-	
+		switch (method)
+		{
+		case AVG_CENTER:
+		{ // always averging num_timesteps
+			start = (int)m_index - (int)num_timesteps / 2;
+			if (start < 0)
+				start = 0;
+			if (((size_t)start + (size_t)num_timesteps) > m_nRecords)
+				start = (int)m_nRecords - (int)num_timesteps;
+			if (start < 0)
+				start = 0;
+		}
+		break;
+		case AVG_FORWARD:
+		{ // always starts at current index and averages up to num_timesteps
+			start = (int)m_index;
+			if (((size_t)start + (size_t)num_timesteps) > m_nRecords)
+				num_steps = (int)m_nRecords - start;
+		}
+		break;
+		case AVG_BACK: default:
+		{  // tries to start num_timesteps in past if possible
+			start = (int)m_index - (int)num_timesteps;
+			if (start < 0)
+			{
+				start = 0;
+				num_steps = (int)m_index + 1;
+			}
+		}
+		break;
+		}
+
 		for (size_t i = 0; i < cols.size(); i++)
 		{
 			double col_val = 0;
 			int n_vals = 0;
 			if (cols[i] >= YEAR && cols[i] < _MAXCOL_)
 			{
-				for (size_t j = (size_t)start; j < start + num_timesteps && j < m_nRecords; j++)
+				for (size_t j = (size_t)start; j < (size_t)(start + num_steps) && j < m_nRecords; j++)
 				{
 					col_val += m_columns[cols[i]].data[j];
 					n_vals++;

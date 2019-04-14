@@ -216,7 +216,7 @@ public:
 	/// reads one more record
 	virtual bool read(weather_record *r) = 0;
 	/// reads one more record
-	virtual bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps)= 0;
+	virtual bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps, int method)= 0;
 
 
 	// some helper methods for ease of use of this class
@@ -231,6 +231,7 @@ public:
 class weatherfile : public weather_data_provider
 {
 private:
+
 	int m_type;
 	std::string m_file;
 
@@ -242,6 +243,7 @@ private:
 	column m_columns[_MAXCOL_];
 
 public:
+	enum { AVG_BACK, AVG_CENTER, AVG_FORWARD };
 	weatherfile();
 	/* Detects file format, read header information, detects which data columns are available and at what index
 	and read weather record information.
@@ -263,7 +265,7 @@ public:
 	bool open( const std::string &file, bool header_only = false );
 
 	bool read( weather_record *r ); 
-	bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps);
+	bool read_average(weather_record *r, weather_record *r_avg, std::vector<int> &cols, size_t &num_timesteps, int method=0);
 	bool has_data_column( size_t id );
 	
 	static std::string normalize_city( const std::string &in );
