@@ -71,7 +71,7 @@ public:
 		nR = first.nR;
 		info = new TestInfo[nI];
 		result = new TestResult[nR];
-		for (size_t i = 0; i < (size_t)nI; i++) {
+		for (int i = 0; i < nI; i++) {
 			info[i].dataType = first.getInfo()[i].dataType;
 			info[i].length = first.getInfo()[i].length;
 			info[i].sscVarName = first.getInfo()[i].sscVarName;
