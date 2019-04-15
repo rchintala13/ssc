@@ -971,9 +971,9 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	wd_cols.push_back(weather_data_provider::PRES);
 	// these are used to calculed ibeam, iskydiffuse and ignddiff from original weather file
 	// averaging currently has no effect - can if separate values passed to cell temperature model
-//	wd_cols.push_back(weather_data_provider::GHI);
-//	wd_cols.push_back(weather_data_provider::DNI);
-//	wd_cols.push_back(weather_data_provider::DHI);
+	wd_cols.push_back(weather_data_provider::GHI);
+	wd_cols.push_back(weather_data_provider::DNI);
+	wd_cols.push_back(weather_data_provider::DHI);
 	size_t wd_ts_avg = 15; // 15 timestep average
 	int radmode = Irradiance->radiationMode;
 
@@ -1348,12 +1348,20 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 								stilt, sazi,
 								((double)wf.hour) + wf.minute / 60.0,
 								radmode, Subarrays[nn]->poa.usePOAFromWF);
-							pvinput_t in_tc(ibeam, iskydiff, ignddiff, 0, ipoa[nn],
+//							pvinput_t in_tc(ibeam, iskydiff, ignddiff, 0, ipoa[nn],
+//								wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+//								solzen, aoi, hdr.elev,
+//								stilt, sazi,
+//								((double)wf_tc.hour) + wf_tc.minute / 60.0,
+//								radmode, Subarrays[nn]->poa.usePOAFromWF);
+							pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
 								wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 								solzen, aoi, hdr.elev,
 								stilt, sazi,
 								((double)wf_tc.hour) + wf_tc.minute / 60.0,
 								radmode, Subarrays[nn]->poa.usePOAFromWF);
+
+							
 							// voltage set to -1 for max power
 							(*Subarrays[nn]->Module->cellTempModel)(in_tc, *Subarrays[nn]->Module->moduleModel, -1.0, tcell);
 						}
@@ -1619,7 +1627,13 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 								pvoutput_t out(0, 0, 0, 0, 0, 0, 0, 0);
 
 
-								pvinput_t in_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+//								pvinput_t in_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+//									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+//									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+//									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+//									((double)wf_tc.hour) + wf_tc.minute / 60.0,
+//									radmode, Subarrays[nn]->poa.usePOAFromWF);
+								pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
 									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
 									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
@@ -1668,12 +1682,20 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 						in[nn] = in_temp;
 						out[nn] = out_temp;	
 						
-						pvinput_t in_temp_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+//						pvinput_t in_temp_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+//							wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+//							solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+//							Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+//							((double)wf_tc.hour) + wf_tc.minute / 60.0,
+//							radmode, Subarrays[nn]->poa.usePOAFromWF);
+						pvinput_t in_temp_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
 							wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 							solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
 							Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
 							((double)wf_tc.hour) + wf_tc.minute / 60.0,
 							radmode, Subarrays[nn]->poa.usePOAFromWF);
+
+						
 						in_tc[nn] = in_temp_tc;
 
 
