@@ -1196,7 +1196,15 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 						Irradiance->dtHour, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->trackerRotationLimitDegrees, Subarrays[nn]->groundCoverageRatio,
 						Subarrays[nn]->monthlyTiltDegrees, Irradiance->userSpecifiedMonthlyAlbedo,
 						Subarrays[nn]->poa.poaAll.get());
-											
+
+					irrad irr_tc(wf_tc, Irradiance->weatherHeader,
+						Irradiance->skyModel, Irradiance->radiationMode, Subarrays[nn]->trackMode,
+						Irradiance->useWeatherFileAlbedo, Irradiance->instantaneous, Subarrays[nn]->backtrackingEnabled,
+						Irradiance->dtHour, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->trackerRotationLimitDegrees, Subarrays[nn]->groundCoverageRatio,
+						Subarrays[nn]->monthlyTiltDegrees, Irradiance->userSpecifiedMonthlyAlbedo,
+						Subarrays[nn]->poa.poaAll.get());
+
+					irr_tc.calc();
 					int code = irr.calc();
 
 					if (code < 0) //jmf updated 11/30/18 so that negative numbers are errors, positive numbers are warnings, 0 is everything correct. implemented in patch for POA model only, will be added to develop for other irrad models as well
@@ -1227,6 +1235,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 					}
 					// beam, skydiff, and grounddiff IN THE PLANE OF ARRAY (W/m2)
 					double ibeam, iskydiff, ignddiff;
+					double ibeam_tc, iskydiff_tc, ignddiff_tc;
 					double aoi, stilt, sazi, rot, btd;
 
 					// Ensure that the usePOAFromWF flag is false unless a reference cell has been used. 
@@ -1258,6 +1267,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 					irr.get_sun(&solazi, &solzen, &solalt, 0, 0, 0, &sunup, 0, 0, 0);
 					irr.get_angles(&aoi, &stilt, &sazi, &rot, &btd);
 					irr.get_poa(&ibeam, &iskydiff, &ignddiff, 0, 0, 0);
+					irr_tc.get_poa(&ibeam_tc, &iskydiff_tc, &ignddiff_tc, 0, 0, 0);
 					alb = irr.getAlbedo();
 
 					if (iyear == 0)
@@ -1354,12 +1364,20 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 //								stilt, sazi,
 //								((double)wf_tc.hour) + wf_tc.minute / 60.0,
 //								radmode, Subarrays[nn]->poa.usePOAFromWF);
-							pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
+							// raises cell temp above measured
+//							pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
+//								wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+//								solzen, aoi, hdr.elev,
+//								stilt, sazi,
+//								((double)wf_tc.hour) + wf_tc.minute / 60.0,
+//								radmode, Subarrays[nn]->poa.usePOAFromWF);
+							pvinput_t in_tc(ibeam_tc, iskydiff_tc, ignddiff_tc, 0, ipoa[nn],
 								wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 								solzen, aoi, hdr.elev,
 								stilt, sazi,
 								((double)wf_tc.hour) + wf_tc.minute / 60.0,
 								radmode, Subarrays[nn]->poa.usePOAFromWF);
+
 
 							
 							// voltage set to -1 for max power
@@ -1633,7 +1651,21 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 //									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
 //									((double)wf_tc.hour) + wf_tc.minute / 60.0,
 //									radmode, Subarrays[nn]->poa.usePOAFromWF);
-								pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
+								// raises cell temp above measured
+//								pvinput_t in_tc(wf_tc.dn, wf_tc.df, wf_tc.gh, wf_tc.dn, wf_tc.dn,
+//									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
+//									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+//									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+//									((double)wf_tc.hour) + wf_tc.minute / 60.0,
+//									radmode, Subarrays[nn]->poa.usePOAFromWF);
+								/*	
+					Subarrays[nn]->poa.poaBeamFront = ibeam;
+					Subarrays[nn]->poa.poaDiffuseFront = iskydiff;
+					Subarrays[nn]->poa.poaGroundFront = ignddiff;
+					Subarrays[nn]->poa.poaRear = ipoa_rear_after_losses[nn];
+					Subarrays[nn]->poa.poaTotal = (radmode == irrad::POA_R) ? ipoa[nn] :(ipoa_front[nn] + ipoa_rear_after_losses[nn]);
+*/
+								pvinput_t in_tc(ibeam_tc, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
 									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
 									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
