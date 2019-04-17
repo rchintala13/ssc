@@ -1665,7 +1665,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 					Subarrays[nn]->poa.poaRear = ipoa_rear_after_losses[nn];
 					Subarrays[nn]->poa.poaTotal = (radmode == irrad::POA_R) ? ipoa[nn] :(ipoa_front[nn] + ipoa_rear_after_losses[nn]);
 */
-								pvinput_t in_tc(ibeam_tc, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+								pvinput_t in_tc(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
 									wf_tc.tdry, wf_tc.tdew, wf_tc.wspd, wf_tc.wdir, wf_tc.pres,
 									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
 									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,

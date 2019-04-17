@@ -94,6 +94,45 @@ pvinput_t::pvinput_t( double ib, double id, double ig, double irear, double ip,
 	usePOAFromWF = up;
 }
 
+
+pvinput_t::pvinput_t(std::vector<double>& ib, std::vector<double>& id, std::vector<double>& ig, std::vector<double>& irear, std::vector<double>& ip, std::vector<double>& ta, std::vector<double>& td, std::vector<double>& ws, std::vector<double>& wd, std::vector<double>& patm, std::vector<double>& zen, std::vector<double>& inc, std::vector<double>& elv, std::vector<double>& tlt, std::vector<double>& azi, double hrday, int rmode, bool up, size_t timestep_average)
+{
+	Ibeam = average_input(ib, timestep_average);
+	Idiff = average_input(id, timestep_average);
+	Ignd = average_input(ig, timestep_average);
+	Irear = average_input(irear, timestep_average);
+	poaIrr = average_input(ip, timestep_average);
+	Tdry = average_input(ta, timestep_average);
+	Tdew = average_input(td, timestep_average);
+	Wspd = average_input(ws, timestep_average);
+	Wdir = average_input(wd, timestep_average);
+	Patm = average_input(patm, timestep_average);
+	Zenith = average_input(zen, timestep_average);
+	IncAng = average_input(inc, timestep_average);
+	Elev = average_input(elv, timestep_average);
+	Tilt = average_input(tlt, timestep_average);
+	Azimuth = average_input(azi, timestep_average);
+	HourOfDay = hrday;
+	radmode = rmode;
+	usePOAFromWF = up;
+}
+
+double pvinput_t::average_input(std::vector<double> invec, size_t max_index)
+{
+	size_t i;
+	double retval = 0;
+	if (invec.size() > 0)
+	{
+		while (invec.size() > max_index)
+			invec.pop_back();
+		for (i = 0; i < invec.size(); i++)
+			retval += invec[i];
+		retval /= invec.size();
+	}
+	return retval;
+}
+
+
 std::string pvcelltemp_t::error()
 {
 	return m_err;

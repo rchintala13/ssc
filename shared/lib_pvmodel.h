@@ -50,6 +50,7 @@
 #ifndef __pvmodulemodel_h
 #define __pvmodulemodel_h
 
+#include <vector>
 #include <string>
 
 class pvcelltemp_t;
@@ -59,11 +60,17 @@ class pvinput_t
 {
 public:
 	pvinput_t();
-	pvinput_t( double ib, double id, double ig, double irear, double ip, 
+	pvinput_t(double ib, double id, double ig, double irear, double ip,
 		double ta, double td, double ws, double wd, double patm,
-		double zen, double inc, 
+		double zen, double inc,
 		double elv, double tlt, double azi,
-		double hrday, int rmode , bool up);
+		double hrday, int rmode, bool up);
+
+	pvinput_t(std::vector<double> &ib, std::vector<double> &id, std::vector<double> &ig, std::vector<double> &irear, std::vector<double> &ip,
+		std::vector<double> &ta, std::vector<double> &td, std::vector<double> &ws, std::vector<double> &wd, std::vector<double> &patm,
+		std::vector<double> &zen, std::vector<double> &inc,
+		std::vector<double> &elv, std::vector<double> &tlt, std::vector<double> &azi,
+		double hrday, int rmode, bool up, size_t timestep_average);
 
 	double Ibeam; // beam irradiance, W/m2
 	double Idiff; // sky diffuse irradiance, W/m2
@@ -83,6 +90,8 @@ public:
 	double HourOfDay; // hour of the day 0=12am, 23=11pm
 	int radmode; //radiation mode
 	bool usePOAFromWF; // use poa directly flag
+private:
+	double average_input(std::vector<double> invec, size_t max_index);
 };
 
 class pvoutput_t
