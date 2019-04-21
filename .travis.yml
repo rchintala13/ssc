@@ -1,4 +1,4 @@
-language: c++
+=language: c++
 
 #cache: ccache
 
@@ -73,4 +73,5 @@ branches:
   - develop
   - patch
   - fuel_cell
+  - ssc_float
   
