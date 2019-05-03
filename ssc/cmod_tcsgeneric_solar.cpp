@@ -96,6 +96,7 @@ static var_info _cm_vtab_tcsgeneric_solar[] = {
 	{ SSC_INPUT,        SSC_NUMBER,      "eta_lhv",          "Fossil backup lower heating value efficiency",                   "none",             "",             "type_260",       "*",                       "",                      "" },
 	{ SSC_INPUT,        SSC_ARRAY,       "etaQ_coefs",       "Part-load power conversion efficiency adjustment coefficients",  "1/MWt",            "",             "type_260",       "*",                       "",                      "" },
 	{ SSC_INPUT,        SSC_ARRAY,       "etaT_coefs",       "Temp.-based power conversion efficiency adjustment coefs.",      "1/C",              "",             "type_260",       "*",                       "",                      "" },
+	{ SSC_INPUT,        SSC_ARRAY,       "wmax_coefs",       "Temp.-based power capacity limit coefs.",						   "1/C",              "",             "type_260",       "*",                       "",                      "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "T_pcdes",          "Power conversion reference temperature",                         "C",                "",             "type_260",       "*",                       "",                      "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "PC_T_corr",        "Power conversion temperature correction mode (1=wetb, 2=dryb)",  "none",             "",             "type_260",       "*",                       "INTEGER",               "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "f_Wpar_fixed",     "Fixed capacity-based parasitic loss fraction",                   "MWe/MWcap",        "",             "type_260",       "*",                       "",                      "" },
@@ -337,6 +338,7 @@ public:
         set_unit_value_ssc_double(type260_genericsolar, "eta_lhv" ); //, 0.9);
         set_unit_value_ssc_array(type260_genericsolar, "etaQ_coefs" ); //, [0.9,0.1,0,0,0]);
         set_unit_value_ssc_array(type260_genericsolar, "etaT_coefs" ); //, [1,-0.002,0,0,0]);
+		set_unit_value_ssc_array(type260_genericsolar, "wmax_coefs" );
         set_unit_value_ssc_double(type260_genericsolar, "T_pcdes" ); //, 21);
         set_unit_value_ssc_double(type260_genericsolar, "PC_T_corr" ); //, 1);
         set_unit_value_ssc_double(type260_genericsolar, "f_Wpar_fixed" ); //, f_Wpar_fixed);

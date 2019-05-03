@@ -99,6 +99,7 @@ enum{
 	P_ETA_LHV,
 	P_ETAQ_COEFS,
 	P_ETAT_COEFS,
+	P_WMAX_COEFS,
 	P_T_PCDES,
 	P_PC_T_CORR,
 	P_F_WPAR_FIXED,
@@ -206,6 +207,7 @@ tcsvarinfo sam_mw_gen_type260_variables[] = {
 	{ TCS_PARAM,          TCS_NUMBER,           P_ETA_LHV,                "eta_lhv",                                            "Fossil backup lower heating value efficiency",         "none",             "",             "",          "0.9" },
 	{ TCS_PARAM,           TCS_ARRAY,        P_ETAQ_COEFS,             "etaQ_coefs",                           "Part-load power conversion efficiency adjustment coefficients",        "1/MWt",             "",             "","0.9,0.1,0,0,0" },
 	{ TCS_PARAM,           TCS_ARRAY,        P_ETAT_COEFS,             "etaT_coefs",                               "Temp.-based power conversion efficiency adjustment coefs.",          "1/C",             "",             "","1,-0.002,0,0,0" },
+	{ TCS_PARAM,           TCS_ARRAY,        P_WMAX_COEFS,             "wmax_coefs",                                      "Temp.-based power capacity limit adjustment coefs.",          "1/C",             "",             "",    "1,0,0,0,0" },
 	{ TCS_PARAM,          TCS_NUMBER,           P_T_PCDES,                "T_pcdes",                                                  "Power conversion reference temperature",            "C",             "",             "",           "21" },
 	{ TCS_PARAM,          TCS_NUMBER,         P_PC_T_CORR,              "PC_T_corr",                           "Power conversion temperature correction mode (1=wetb, 2=dryb)",         "none",             "",             "",            "1" },
 	{ TCS_PARAM,          TCS_NUMBER,      P_F_WPAR_FIXED,           "f_Wpar_fixed",                                            "Fixed capacity-based parasitic loss fraction",    "MWe/MWcap",             "",             "",       "0.0055" },
@@ -540,16 +542,20 @@ public:
 		double *pt_etaQ_coefs = value(P_ETAQ_COEFS, &n_etaQ_coefs);		//Part-load power conversion efficiency adjustment coefficients [1/MWt]
 		mp_pc_params->mv_etaQ_coefs.resize(n_etaQ_coefs);
 		for(int i = 0; i < n_etaQ_coefs; i++)
-		{
 			mp_pc_params->mv_etaQ_coefs[i] = pt_etaQ_coefs[i];
-		}
+		
 		int n_etaT_coefs = 0;
 		double *pt_etaT_coefs = value(P_ETAT_COEFS, &n_etaT_coefs);		//Temp.-based power conversion efficiency adjustment coefs. [1/C]
 		mp_pc_params->mv_etaT_coefs.resize(n_etaT_coefs);
 		for(int i = 0; i < n_etaT_coefs; i++)
-		{
 			mp_pc_params->mv_etaT_coefs[i] = pt_etaT_coefs[i];
-		}
+		
+		int n_wmax_coefs = 0;
+		double *pt_wmax_coefs = value(P_WMAX_COEFS, &n_wmax_coefs);		//Temp.-based power conversion efficiency adjustment coefs. [1/C]
+		mp_pc_params->mv_wmax_coefs.resize(n_wmax_coefs);
+		for (int i = 0; i < n_wmax_coefs; i++)
+			mp_pc_params->mv_wmax_coefs[i] = pt_wmax_coefs[i];
+		
 		// *****************************************************************************
 		// *****************************************************************************
 
@@ -787,6 +793,20 @@ public:
 		int pbstartf = 0;     //| is 1 during the period when powerblock starts up otherwise 0
 		m_q_startup_used = m_q_startup_remain;   //| Turbine startup energy for this timestep is equal to the remaining previous energy
 
+		//calculate any limitation on power cycle thermal input
+		double tnorm = std::numeric_limits<double>::quiet_NaN();
+		if (PC_T_corr == 1)      //Select the dry or wet bulb temperature as the driving difference
+			tnorm = twb - T_pcdes;
+		else
+			tnorm = tdb - T_pcdes;
+
+		double f_wmax_tamb = 0.;
+		for(size_t i=0; i<mp_pc_params->mv_wmax_coefs.size(); i++)
+			f_wmax_tamb += mp_pc_params->mv_wmax_coefs[i] * pow(tnorm, i);
+
+		double qtt_max_ftamb = m_qttmax * f_wmax_tamb;
+		double q_disp_touperiod = qdisp[touperiod] > qtt_max_ftamb ? qtt_max_ftamb : qdisp[touperiod];
+
 		//--------Plant dispatch strategy--------------------
 		if (hrs_tes <= 0.){ // No Storage
 			if ((pbmode0==0)||(pbmode0==1)){ // if plant is not already operating in last timestep
@@ -833,9 +853,9 @@ public:
 				pbmode = 0;           // PB turned off
 			}
 
-			if( q_to_pb > m_qttmax ){   // Energy to powerblock greater than what the PB can handle (max)
-				q_dump_teschg = q_to_pb - m_qttmax; // The energy dumped 
-				q_to_pb = m_qttmax;          // the energy to the PB is exactly the maximum
+			if( q_to_pb > qtt_max_ftamb){   // Energy to powerblock greater than what the PB can handle (max)
+				q_dump_teschg = q_to_pb - qtt_max_ftamb; // The energy dumped 
+				q_to_pb = qtt_max_ftamb;          // the energy to the PB is exactly the maximum
 			}
 		}
 		else{    //With thermal storage    
@@ -862,14 +882,14 @@ public:
 				// 3.) Solar field energy exceeds maximum TES charging rate
 				//------------------------------------------------------------
 				double EtesA = max(0.0, etes0 - dispatch.at(touperiod));
-				if ((q_sf + EtesA >= qdisp[touperiod]) || (q_sf > ptsmax)){
+				if ((q_sf + EtesA >= q_disp_touperiod) || (q_sf > ptsmax)){
 
 					// Assumes Operator started plant during previous time period
 					// But TRNSYS cannot do this, so start-up energy is deducted during current timestep.     
 					pbmode = 1;
 					q_startup = m_q_startup / dt;
 
-					q_to_pb = qdisp[touperiod];       // set the energy to powerblock equal to the load for this TOU period
+					q_to_pb = q_disp_touperiod;       // set the energy to powerblock equal to the load for this TOU period
 
 					if (q_sf>q_to_pb){             // if solar field output is greater than what the necessary load ?
 						q_to_tes = q_sf - q_to_pb;           // the extra goes to thermal storage
@@ -902,9 +922,9 @@ public:
 			//******        plant is already operating             *****
 			//**********************************************************
 
-				if ((q_sf + max(0.0,etes0-dispatch.at(touperiod)) /dt) > qdisp[touperiod]){ // if there is sufficient energy to operate at dispatch target output
+				if ((q_sf + max(0.0,etes0-dispatch.at(touperiod)) /dt) > q_disp_touperiod){ // if there is sufficient energy to operate at dispatch target output
 
-					q_to_pb = qdisp[touperiod]; 
+					q_to_pb = q_disp_touperiod;
 
 					if (q_sf>q_to_pb){ 
 						q_to_tes = q_sf - q_to_pb; //extra from what is needed put in thermal storage
@@ -924,14 +944,14 @@ public:
 					m_e_in_tes = etes0 + (q_sf - q_to_pb - q_dump_teschg) *dt;  // energy of thermal storage is the extra
 
 					// Check to see if throwing away energy 
-					if( (m_e_in_tes>etesmax) && (q_to_pb<m_qttmax) ){ // qttmax (MWt) - power to turbine max
-						if( (m_e_in_tes - etesmax) / dt < (m_qttmax - q_to_pb) ){
+					if( (m_e_in_tes>etesmax) && (q_to_pb< qtt_max_ftamb) ){ // qttmax (MWt) - power to turbine max
+						if( (m_e_in_tes - etesmax) / dt < (qtt_max_ftamb - q_to_pb) ){
 							q_to_pb = q_to_pb + (m_e_in_tes - etesmax) / dt;
 							m_e_in_tes = etesmax;
 						}
 						else{
-							m_e_in_tes = m_e_in_tes - (m_qttmax - q_to_pb) * dt;  // should this be etes0 instead of e_in_tes on RHS ??
-							q_to_pb = m_qttmax;
+							m_e_in_tes = m_e_in_tes - (qtt_max_ftamb - q_to_pb) * dt;  // should this be etes0 instead of e_in_tes on RHS ??
+							q_to_pb = qtt_max_ftamb;
 						}
 						q_to_tes = q_sf - q_to_pb;
 					}
@@ -1093,12 +1113,6 @@ public:
 		for(int i=0; i<nval_Wpar_prodQ_coefs; i++)
 			wpar_prodq += Wpar_prodQ_coefs[i]*pow(qnorm, i);	//Power block part-load correction factor
 		
-		double tnorm = std::numeric_limits<double>::quiet_NaN();
-		if( PC_T_corr == 1 )      //Select the dry or wet bulb temperature as the driving difference
-			tnorm = twb - T_pcdes;
-		else
-			tnorm = tdb - T_pcdes;
-
 		for(int i=0; i<nval_Wpar_prodT_coefs; i++)
 			wpar_prodt += Wpar_prodT_coefs[i]*pow(tnorm, i);	//Temperature correction factor
 		

@@ -102,6 +102,7 @@ public:
 
 		std::vector<double> mv_etaQ_coefs;	//[1/Mwt] Part-load power conversion efficiency adjustment coefficients
 		std::vector<double> mv_etaT_coefs;	//[1/C] Temp.-based power conversion efficiency adjustment coefs
+		std::vector<double> mv_wmax_coefs;	//[1/C] Temp.-based power capacity limit coefs
 
 		S_params()
 		{
@@ -111,6 +112,7 @@ public:
 
 			mv_etaQ_coefs.resize(0);
 			mv_etaT_coefs.resize(0);
+			mv_wmax_coefs.resize(0);
 		}
 	};
 

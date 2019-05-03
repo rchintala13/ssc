@@ -137,6 +137,12 @@ void C_pc_gen::init(C_csp_power_cycle::S_solved_params &solved_params)
 		throw(C_csp_exception("C_csp_gen_pc::init",
 			"The model requires at least one temperature correction power cycle efficiency coefficient (mv_etaT_coefs)"));
 	}
+	if (ms_params.mv_wmax_coefs.size() < 1)
+	{
+		throw(C_csp_exception("C_csp_gen_pc::init",
+			"The model requires at least one temperature correction power cycle capacity coefficient (mv_wmax_coefs)"));
+	}
+		
 
 	// Unit conversion
 	ms_params.m_T_pc_des += 273.15;		//[K], convert from C
@@ -286,6 +292,7 @@ void C_pc_gen::call(const C_csp_weatherreader::S_outputs &weather,
 	// Calculate the load-based and temperature-based efficiency correction factors
 	double f_effpc_qtpb = 0.0;
 	double f_effpc_tamb = 0.0;
+	double f_wmax_tamb = 0.0;
 	for( size_t i = 0; i < ms_params.mv_etaQ_coefs.size(); i++ )
 		f_effpc_qtpb += ms_params.mv_etaQ_coefs[i] * pow(qnorm, i);
 	for( size_t i = 0; i < ms_params.mv_etaT_coefs.size(); i++ )
