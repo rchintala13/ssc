@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="..\test\input_cases\weather_inputs.cpp" />
     <ClCompile Include="..\test\main.cpp" />
+    <ClCompile Include="..\test\shared_test\jsoncpp_test.cpp" />
     <ClCompile Include="..\test\shared_test\lib_battery_dispatch_test.cpp" />
     <ClCompile Include="..\test\shared_test\lib_battery_powerflow_test.cpp" />
     <ClCompile Include="..\test\shared_test\lib_battery_test.cpp" />
@@ -59,6 +60,7 @@
     <ClInclude Include="..\test\input_cases\swh_common.h" />
     <ClInclude Include="..\test\input_cases\weather_inputs.h" />
     <ClInclude Include="..\test\input_cases\windpower_cases.h" />
+    <ClInclude Include="..\test\shared_test\jsoncpp_test.h" />
     <ClInclude Include="..\test\shared_test\lib_battery_dispatch_test.h" />
     <ClInclude Include="..\test\shared_test\lib_battery_powerflow_test.h" />
     <ClInclude Include="..\test\shared_test\lib_battery_properties.h" />
