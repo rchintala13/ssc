@@ -17,6 +17,8 @@
     <ClInclude Include="..\shared\6par_newton.h" />
     <ClInclude Include="..\shared\6par_search.h" />
     <ClInclude Include="..\shared\6par_solve.h" />
+    <ClInclude Include="..\shared\json\json-forwards.h" />
+    <ClInclude Include="..\shared\json\json.h" />
     <ClInclude Include="..\shared\lib_time.h" />
     <ClInclude Include="..\shared\lib_battery.h" />
     <ClInclude Include="..\shared\lib_battery_dispatch.h" />
@@ -55,6 +57,7 @@
     <ClInclude Include="..\shared\lsqfit.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\shared\jsoncpp.cpp" />
     <ClCompile Include="..\shared\lib_battery.cpp" />
     <ClCompile Include="..\shared\lib_battery_dispatch.cpp" />
     <ClCompile Include="..\shared\lib_battery_powerflow.cpp" />
