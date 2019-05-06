@@ -18,7 +18,6 @@ TEST_F(JSONCPPTest, TestRead)
 				const double rate = tier["rate"].asDouble();
 				EXPECT_EQ(rate, 10.0);
 			}
-			
 		}
 	}
 
