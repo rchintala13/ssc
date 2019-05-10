@@ -1,6 +1,7 @@
 #ifndef _LIB_UTILITY_RATE_H_
 #define _LIB_UTILITY_RATE_H_
 
+#include "json/json.h"
 #include "lib_util.h"
 #include <map>
 
@@ -10,11 +11,21 @@ public:
 	
 	UtilityRate(){};
 
-	UtilityRate(util::matrix_t<size_t> ecWeekday, util::matrix_t<size_t> ecWeekend, util::matrix_t<double> ecRatesMatrix);
+	/// Pass in the URDB response as a const char array
+	UtilityRate(const char *urdb_json_string);
+
+	/// Pass in a diurnal (12x24) schedule for both the weekday and weekend energy charges, plus a matrix of corresponding rates
+	UtilityRate(util::matrix_t<size_t> ecWeekday, 
+				util::matrix_t<size_t> ecWeekend, 
+				util::matrix_t<double> ecRatesMatrix);
 
 	virtual ~UtilityRate() {/* nothing to do */ };
 
 protected:
+	
+	/// URDB JSON representation
+	Json::Value m_urdb;
+	
 	/// Energy charge schedule for weekdays
 	util::matrix_t<size_t> m_ecWeekday;
 

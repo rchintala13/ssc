@@ -101,6 +101,9 @@
     <ClCompile Include="..\test\shared_test\jsoncpp_test.cpp">
       <Filter>shared_test</Filter>
     </ClCompile>
+    <ClCompile Include="..\test\shared_test\lib_utility_rate_test.cpp">
+      <Filter>shared_test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shared_test">
@@ -253,6 +256,9 @@
       <Filter>shared_test</Filter>
     </ClInclude>
     <ClInclude Include="..\test\shared_test\jsoncpp_test.h">
+      <Filter>shared_test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test\shared_test\lib_utility_rate_test.h">
       <Filter>shared_test</Filter>
     </ClInclude>
   </ItemGroup>
