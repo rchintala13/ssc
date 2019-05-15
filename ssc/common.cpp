@@ -78,6 +78,23 @@ var_info vtab_standard_financial[] = {
 
 var_info_invalid };
 
+
+var_info vtab_capacity_payments_financial[] = {
+
+	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_amount",                           "Payment amount",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_eligible_capacity",                           "Eligible capacity",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_monthly",                           "Fixed monthly payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_annual",                           "Fixed annual payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_amount",                           "Variable payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_percent_nameplate",                           "Eligible fixed percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_percent_nameplate",                           "Eligible variable percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
+
+var_info_invalid };
+
+
+
 var_info vtab_battery_replacement_cost[] = {
 
 	/*   VARTYPE           DATATYPE         NAME                            LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS*/
