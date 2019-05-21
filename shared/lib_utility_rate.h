@@ -26,10 +26,22 @@ public:
 	/// Get the energy rates matrix (period, tier, max usage in tier, max usage unit, buy rate ($/kWh), sell rate ($/kWh)
 	util::matrix_t<double> getEnergyRatesMatrix();
 
+	/// Get the energy weekday schedule
+	util::matrix_t<size_t> getEnergyWeekdaySchedule();
+
+	/// Get the energy weekend schedule
+	util::matrix_t<size_t> getEnergyWeekendSchedule();
+
 	virtual ~UtilityRate() {/* nothing to do */ };
 
 protected:
-	
+
+	/// Retrieve Diurnal data
+	bool retrieveDirnualURDB(Json::Value dirnual, util::matrix_t<size_t> &data);
+
+	/// Error messages
+	std::vector<std::string> m_errors;
+
 	/// URDB JSON representation
 	Json::Value m_urdb;
 	

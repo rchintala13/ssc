@@ -30,7 +30,19 @@ TEST_F(libUtilityRateTests, TestJsonStringConstruct)
 	ASSERT_NEAR(energyRatesMatrix.at(2, 4), 0.179509, 0.001);
 	ASSERT_NEAR(energyRatesMatrix.at(3, 4), 0.157777, 0.001);
 
-	
+	util::matrix_t<size_t> energyWeekdaySchedule = ur.getEnergyWeekdaySchedule();
+	size_t nr, nc;
+	energyWeekdaySchedule.size(nr, nc);
+	ASSERT_EQ(nr, 12);
+	ASSERT_EQ(nc, 24);
+	ASSERT_EQ(energyWeekdaySchedule.at(0, 0), 1);
+	ASSERT_EQ(energyWeekdaySchedule.at(5, 0), 0);
 
+	util::matrix_t<size_t> energyWeekendSchedule = ur.getEnergyWeekendSchedule();
+	energyWeekendSchedule.size(nr, nc);
+	ASSERT_EQ(nr, 12);
+	ASSERT_EQ(nc, 24);
+	ASSERT_EQ(energyWeekendSchedule.at(0, 0), 1);
+	ASSERT_EQ(energyWeekendSchedule.at(5, 0), 0);
 
 }

@@ -7,10 +7,35 @@
 #include "json/json.h"
 
 util::matrix_t<double> UtilityRate::getEnergyRatesMatrix() { return m_ecRatesMatrix; }
+util::matrix_t<size_t> UtilityRate::getEnergyWeekdaySchedule() { return m_ecWeekday; }
+util::matrix_t<size_t> UtilityRate::getEnergyWeekendSchedule() { return m_ecWeekend; }
+
 
 UtilityRate::UtilityRate(std::string urdb_json_chars)
 {
 	parseUrdbRate(urdb_json_chars);
+}
+
+bool UtilityRate::retrieveDirnualURDB(Json::Value diurnal, util::matrix_t<size_t> &data)
+{
+	std::vector<size_t> sched;
+	bool success = true;
+	if (diurnal) {
+		if (diurnal.size() != 12) {
+			return false;
+		}
+		for (size_t m = 0; m < diurnal.size(); m++) {
+			const Json::Value hourArray = diurnal[(int)m];
+			if (hourArray.size() != 24) {
+				return false;
+			}
+			for (size_t h = 0; h < 24; h++) {
+				sched.push_back(hourArray[(int)h].asUInt());
+			}
+		}
+		data = util::matrix_t<size_t>(12, 24, &sched);
+	}
+	return success;
 }
 
 bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
@@ -24,10 +49,19 @@ bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 
 	if (parseOk)
 	{
+		// Minimum and fixed charges
 		m_annual_min_charge_dollar = m_urdb["annualmincharge"].asDouble();
 		m_monthly_min_charge_dollar = m_urdb["minmonthlycharge"].asDouble();
 		m_monthly_fixed_charge_dollar = m_urdb["fixedmonthlycharge"].asDouble();
 		
+		// Energy rate schedules
+		const Json::Value energyWeekSchedule = m_urdb["energyweekdayschedule"];
+		if (!UtilityRate::retrieveDirnualURDB(energyWeekSchedule, m_ecWeekday)) { return false; }
+
+		const Json::Value energyWeekendSchedule = m_urdb["energyweekendschedule"];
+		if (!UtilityRate::retrieveDirnualURDB(energyWeekendSchedule, m_ecWeekend)) { return false; }
+
+		// Energy rate structure
 		size_t energy_rows = 0;
 		std::vector<double> ec_rates_vector;
 		const Json::Value energyRatePeriods = m_urdb["energyratestructure"];
@@ -67,7 +101,6 @@ bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 			}
 		}
 		m_ecRatesMatrix = util::matrix_t<double>(energy_rows, 6, &ec_rates_vector);
-
 
 
 		const Json::Value flatdemandstructure = m_urdb["flatdemandstructure"];
