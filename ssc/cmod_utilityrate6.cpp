@@ -1178,12 +1178,19 @@ void cm_utilityrate6::monthly_outputs(ssc_number_t *e_load, ssc_number_t *e_sys,
 	}
 }
 
+void cm_utilityrate6::parse_urdb_json()
+{
+
+}
+
 void cm_utilityrate6::setup()
 {
+	if (as_boolean("use_urdb_json")) {
+		parse_urdb_json();
+	}
+
 	size_t nrows, ncols, r, c, m, i, j;
 	int period, tier, month;
-	//		util::matrix_t<float> dc_schedwkday(12, 24, 1);
-	//		util::matrix_t<float> dc_schedwkend(12, 24, 1);
 
 	for (i = 0; i < m_ec_periods_tiers_init.size(); i++)
 		m_ec_periods_tiers_init[i].clear();
