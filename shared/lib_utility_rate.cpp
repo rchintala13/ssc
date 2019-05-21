@@ -3,12 +3,13 @@
 #include <sstream>
 #include <string>
 #include "lib_utility_rate.h"
+#include "json/json.h"
 
 UtilityRate::UtilityRate(const char *urdb_json_chars)
 {
 	Json::CharReaderBuilder builder;
 	Json::Reader reader;
-	bool parsingSuccessful = reader.parse(std::string(urdb_json_chars), m_urdb);
+	reader.parse(std::string(urdb_json_chars), m_urdb);
 }
 
 UtilityRate::UtilityRate(util::matrix_t<size_t> ecWeekday, util::matrix_t<size_t> ecWeekend, util::matrix_t<double> ecRatesMatrix)
