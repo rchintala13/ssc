@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <sstream>
@@ -5,12 +6,87 @@
 #include "lib_utility_rate.h"
 #include "json/json.h"
 
-UtilityRate::UtilityRate(const char *urdb_json_chars)
+util::matrix_t<double> UtilityRate::getEnergyRatesMatrix() { return m_ecRatesMatrix; }
+
+UtilityRate::UtilityRate(std::string urdb_json_chars)
+{
+	parseUrdbRate(urdb_json_chars);
+}
+
+bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 {
 	Json::CharReaderBuilder builder;
-	Json::Reader reader;
-	reader.parse(std::string(urdb_json_chars), m_urdb);
+	Json::CharReader * reader = builder.newCharReader();
+	bool parseOk = true;
+	std::string errors;
+	parseOk = reader->parse(urdb_reponse.c_str(), urdb_reponse.c_str() + urdb_reponse.size(), &m_urdb, &errors );
+	delete reader;
+
+	if (parseOk)
+	{
+		m_annual_min_charge_dollar = m_urdb["annualmincharge"].asDouble();
+		m_monthly_min_charge_dollar = m_urdb["minmonthlycharge"].asDouble();
+		m_monthly_fixed_charge_dollar = m_urdb["fixedmonthlycharge"].asDouble();
+		
+		size_t energy_rows = 0;
+		std::vector<double> ec_rates_vector;
+		const Json::Value energyRatePeriods = m_urdb["energyratestructure"];
+		if (energyRatePeriods) {
+			for (size_t p = 0; p < energyRatePeriods.size(); p++) {
+				const Json::Value period = energyRatePeriods[(int)p];
+				for (size_t t = 0; t < period.size(); t++) {
+					const Json::Value tier = period[(int)t];
+					double max = tier["max"].asDouble();
+					if (!max) {
+						max = 1e38;
+					}
+					int iunit = 0;
+					std::string unit = tier["unit"].asString();
+					std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
+					if (unit == "kwh") {
+						iunit = 0;
+					}
+					else if (unit == "kwh/kw") {
+						iunit = 1;
+					}
+					else if (unit == "kwh daily") {
+						iunit = 2;
+					}
+					else if (unit == "kwh/kw daily") {
+						iunit = 3;
+					}
+
+					ec_rates_vector.push_back(p + 1);
+					ec_rates_vector.push_back(t + 1);
+					ec_rates_vector.push_back(max);
+					ec_rates_vector.push_back(iunit);
+					ec_rates_vector.push_back(tier["rate"].asDouble() + tier["adj"].asDouble());
+					ec_rates_vector.push_back(tier["sell"].asDouble());
+					energy_rows++;
+				}
+			}
+		}
+		m_ecRatesMatrix = util::matrix_t<double>(energy_rows, 6, &ec_rates_vector);
+
+
+
+		const Json::Value flatdemandstructure = m_urdb["flatdemandstructure"];
+		if (flatdemandstructure) {
+			for (size_t p = 0; p < flatdemandstructure.size(); p++) {
+				const Json::Value period = flatdemandstructure[(int)p];
+				for (size_t t = 0; t < period.size(); t++) {
+					const Json::Value tier = period[(int)t];
+					const double rate = tier["rate"].asDouble();
+				}
+			}
+		}
+
+	}
+	return parseOk;
 }
+
+
+
 
 UtilityRate::UtilityRate(util::matrix_t<size_t> ecWeekday, util::matrix_t<size_t> ecWeekend, util::matrix_t<double> ecRatesMatrix)
 {

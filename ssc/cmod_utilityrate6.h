@@ -74,6 +74,8 @@ protected:
 	size_t nyears;
 	size_t nrec_gen;
 
+	std::unique_ptr<UtilityRate> m_utilityRate;
+
 	// schedule outputs
 	std::vector<int> m_ec_tou_sched;
 	std::vector<int> m_dc_tou_sched;
