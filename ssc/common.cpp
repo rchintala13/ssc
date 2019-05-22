@@ -79,18 +79,31 @@ var_info vtab_standard_financial[] = {
 var_info_invalid };
 
 
-var_info vtab_capacity_payments_financial[] = {
+var_info vtab_financial_capacity_payments[] = {
 
 	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_amount",                           "Payment amount",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_eligible_capacity",                           "Eligible capacity",                                  "",  "",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "0=Energy basis,1=fixed amount",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_amount",                           "Payment amount",                                  "",  "0=Fixed monthly,1=fixed annual,2=Variable",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=2",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_eligible_capacity",                           "Eligible capacity",                                  "",  "0=Fixed percentage of nameplate,1=Variable",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_monthly",                           "Fixed monthly payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_annual",                           "Fixed annual payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_amount",                           "Variable payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_percent_nameplate",                           "Eligible fixed percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_percent_nameplate",                           "Eligible variable percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
 
+var_info_invalid };
+
+var_info vtab_financial_grid[] = {
+
+	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
+		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment_price",                           "Curtailment price",                                  "$/kWh",  "",                      "Financial Grid",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "grid_interconnection_limit",                           "Payment amount",                                  "MW",  "",                      "Financial Grid",      "*",                   "",          "" },
+var_info_invalid };
+
+var_info vtab_revenue_model[] = {
+
+	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
+		{ SSC_INPUT,        SSC_NUMBER,      "revenue_model",                           "Revenue model",                                  "",  "0=PPA revenue,1=Ancillary services",                      "Revenue model",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
 var_info_invalid };
 
 

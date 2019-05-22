@@ -872,6 +872,9 @@ extern var_info
 	vtab_oandm[],
 	vtab_tax_credits[],
 	vtab_payment_incentives[],
+	vtab_financial_capacity_payments[],
+	vtab_financial_grid[],
+	vtab_revenue_model[],
 	vtab_fuelcell_replacement_cost[],
 	vtab_battery_replacement_cost[];
 
