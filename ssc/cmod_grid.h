@@ -59,11 +59,11 @@ struct gridVariables
 {
 public:
 
-	gridVariables() {/* nothing to do */ };
+//	gridVariables() {/* nothing to do */ };
 	gridVariables(compute_module & cm) : 
 		enable_interconnection_limit(cm.as_boolean("enable_interconnection_limit")),
-		grid_interconnection_limit_kW(cm.as_double("grid_interconnection_limit_kwac"))
-		
+		grid_interconnection_limit_kW(cm.as_double("grid_interconnection_limit_kwac")),
+		haf(&cm, "grid_curtailment")
 	{
 
 
@@ -92,7 +92,11 @@ public:
 
 		grid_kW.reserve(numberOfLifetimeRecords);
 		grid_kW = systemGenerationLifetime_kW;
+
+		
 	}
+	// curtailment hourly adjustment factors
+	adjustment_factors haf;
 
 	// generation input with interconnection limit
 	std::vector<double> systemGenerationLifetime_kW;

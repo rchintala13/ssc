@@ -53,4 +53,39 @@ void grid_default_30_min_lifetime(ssc_data_t &data)
 }
 
 
+void grid_50_curtailed_60_min(ssc_data_t &data)
+{
+	set_array(data, "gen", gen_path_grid, 8760);
+	ssc_data_set_number(data, "system_use_lifetime_output", 0);
+	ssc_data_set_number(data, "analysis_period", 30);
+	set_array(data, "load", load_profile_path_grid, 8760);
+	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 180000);
+	ssc_data_set_number(data, "enable_interconnection_limit", 1);
+	ssc_data_set_number(data, "grid_curtailment:constant", 50);
+}
+
+void grid_50_curtailed_30_min(ssc_data_t &data)
+{
+	set_array(data, "gen", gen_path_grid_30, 8760 * 2);
+	ssc_data_set_number(data, "system_use_lifetime_output", 0);
+	ssc_data_set_number(data, "analysis_period", 30);
+	set_array(data, "load", load_profile_path_grid_30, 8760 * 2);
+	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 180000);
+	ssc_data_set_number(data, "enable_interconnection_limit", 1);
+	ssc_data_set_number(data, "grid_curtailment:constant", 50);
+}
+
+void grid_50_curtailed_30_min_lifetime(ssc_data_t &data)
+{
+	set_array(data, "gen", gen_path_grid_30_2yr, 8760 * 2 * 2);
+	ssc_data_set_number(data, "system_use_lifetime_output", 1);
+	ssc_data_set_number(data, "analysis_period", 2);
+	set_array(data, "load", load_profile_path_grid_30, 8760 * 2);
+	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 180000);
+	ssc_data_set_number(data, "enable_interconnection_limit", 1);
+	ssc_data_set_number(data, "grid_curtailment:constant", 50);
+}
+
+
+
 #endif

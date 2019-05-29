@@ -104,10 +104,7 @@ void cm_grid::construct()
 {
 	std::unique_ptr<gridVariables> tmp(new gridVariables(*this));
 	gridVars = std::move(tmp);
-	adjustment_factors haf(this, "grid_curtailment");
-	if (!haf.setup())
-		throw exec_error("grid", "failed to setup adjustment factors: " + haf.error());
-
+	gridVars->haf.setup();
 	allocateOutputs();
 }
 
@@ -116,12 +113,13 @@ void cm_grid::exec() throw (general_error)
 	construct();
 
 	// interconnection  calculations
-	double capacity_factor_interconnect, annual_energy_pre_interconnect, annual_energy_interconnect;
-	capacity_factor_interconnect = annual_energy_pre_interconnect = annual_energy_interconnect = 0;
+	double capacity_factor_interconnect, annual_energy_pre_interconnect, annual_energy_pre_curtailment, annual_energy;
+	capacity_factor_interconnect = annual_energy_pre_interconnect = annual_energy_pre_curtailment = annual_energy = 0;
 
-	annual_energy_pre_interconnect = std::accumulate(gridVars->systemGenerationLifetime_kW.begin(), gridVars->systemGenerationLifetime_kW.begin() + gridVars->numberOfSingleYearRecords, (double)0.0)*gridVars->dt_hour_gen;
+//	annual_energy_pre_interconnect = std::accumulate(gridVars->systemGenerationLifetime_kW.begin(), gridVars->systemGenerationLifetime_kW.begin() + gridVars->numberOfSingleYearRecords, (double)0.0)*gridVars->dt_hour_gen;
 
-
+	size_t hour = 0;
+	size_t num_steps_per_hour = size_t(1.0 / gridVars->dt_hour_gen);
 	// compute grid export, apply interconnection limit
 	for (size_t i = 0; i < gridVars->numberOfLifetimeRecords; i++) 
 	{
@@ -136,17 +134,45 @@ void cm_grid::exec() throw (general_error)
 		gridVars->systemGenerationLifetime_kW[i] -= interconnectionLimited;
 
 		p_genPreCurtailment_kW[i] = static_cast<ssc_number_t>(gridVars->systemGenerationLifetime_kW[i]);
+
+		// compute curtailment
+		gridVars->systemGenerationLifetime_kW[i] *= gridVars->haf(hour);
+
+		p_genGrid_kW[i] = static_cast<ssc_number_t>(gridVars->systemGenerationLifetime_kW[i]);
+
+		if (i < gridVars->numberOfSingleYearRecords)
+		{
+			annual_energy_pre_interconnect += p_genPreInterconnect_kW[i];
+			annual_energy_pre_curtailment += p_genPreCurtailment_kW[i];
+			annual_energy += p_genGrid_kW[i];
+		}
+
+
+		if (((i + 1) % gridVars->numberOfSingleYearRecords) == 0)
+			hour = 0;
+		else if (((i + 1) % num_steps_per_hour) == 0)
+			hour++;
+
 	}
 
-	annual_energy_interconnect = std::accumulate(gridVars->systemGenerationLifetime_kW.begin(), gridVars->systemGenerationLifetime_kW.begin() + gridVars->numberOfSingleYearRecords, (double)0.0)*gridVars->dt_hour_gen;
-	capacity_factor_interconnect = annual_energy_interconnect * util::fraction_to_percent / (gridVars->grid_interconnection_limit_kW * 8760.);
+
+	annual_energy_pre_interconnect *= gridVars->dt_hour_gen;
+	annual_energy_pre_curtailment *= gridVars->dt_hour_gen;
+	annual_energy *= gridVars->dt_hour_gen;
+
+
+//	annual_energy_interconnect = std::accumulate(gridVars->systemGenerationLifetime_kW.begin(), gridVars->systemGenerationLifetime_kW.begin() + gridVars->numberOfSingleYearRecords, (double)0.0)*gridVars->dt_hour_gen;
+	capacity_factor_interconnect = annual_energy_pre_curtailment * util::fraction_to_percent / (gridVars->grid_interconnection_limit_kW * 8760.);
+
+
+
 
 	assign("capacity_factor_interconnect_ac", var_data(capacity_factor_interconnect));
 	assign("annual_energy_pre_interconnect_ac", var_data(annual_energy_pre_interconnect));
-	assign("annual_energy_pre_curtailment_ac", var_data(annual_energy_interconnect));
-	assign("annual_energy", var_data(annual_energy_interconnect)); // update after curtailment applied.
-	assign("annual_ac_interconnect_loss_kwh", var_data(std::roundf(annual_energy_pre_interconnect - annual_energy_interconnect)));
-	assign("annual_ac_interconnect_loss_percent", var_data(100.0*(annual_energy_pre_interconnect - annual_energy_interconnect)/ annual_energy_pre_interconnect));
+	assign("annual_energy_pre_curtailment_ac", var_data(annual_energy_pre_curtailment));
+	assign("annual_energy", var_data(annual_energy)); 
+	assign("annual_ac_interconnect_loss_kwh", var_data(std::roundf(annual_energy_pre_interconnect - annual_energy_pre_curtailment)));
+	assign("annual_ac_interconnect_loss_percent", var_data(100.0*(annual_energy_pre_interconnect - annual_energy_pre_curtailment)/ annual_energy_pre_interconnect));
 
 }
 
