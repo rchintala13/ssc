@@ -390,9 +390,9 @@ var_info_invalid };
 var_info vtab_grid_curtailment_adjustment_factors[] = {
 	/*   VARTYPE           DATATYPE         NAME                               LABEL                                       UNITS     META                                     GROUP                 REQUIRED_IF                 CONSTRAINTS                      UI_HINTS*/
 
-		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment_adjust:constant",            "Grid Curtailment Constant loss adjustment",             "%",    "",                                     "Loss Adjustments",      "*",                     "MAX=100",                     "" },
-		{ SSC_INPUT,        SSC_ARRAY,       "grid_curtailment_adjust:hourly",              "Grid Curtailment Hourly loss adjustments",              "%",    "",                                     "Loss Adjustments",      "?",                     "LENGTH=8760",                "" },
-		{ SSC_INPUT,        SSC_MATRIX,      "grid_curtailment_adjust:periods",             "Grid Curtailment Period-based loss adjustments",        "%",    "n x 3 matrix [ start, end, loss ]",    "Loss Adjustments",      "?",                     "COLS=3",                     "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment:constant",            "Grid Curtailment Constant loss adjustment",             "%",    "",                                     "Loss Adjustments",      "*",                     "MAX=100",                     "" },
+		{ SSC_INPUT,        SSC_ARRAY,       "grid_curtailment:hourly",              "Grid Curtailment Hourly loss adjustments",              "%",    "",                                     "Loss Adjustments",      "?",                     "LENGTH=8760",                "" },
+		{ SSC_INPUT,        SSC_MATRIX,      "grid_curtailment:periods",             "Grid Curtailment Period-based loss adjustments",        "%",    "n x 3 matrix [ start, end, loss ]",    "Loss Adjustments",      "?",                     "COLS=3",                     "" },
 
 	var_info_invalid };
 

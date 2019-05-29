@@ -91,13 +91,13 @@ public:
 		numberOfYears = n_rec_lifetime / n_rec_single_year;
 
 		grid_kW.reserve(numberOfLifetimeRecords);
-		systemGenerationPreInterconnect_kW = systemGenerationLifetime_kW;
+		grid_kW = systemGenerationLifetime_kW;
 	}
 
-	// generation input with interconnection curtailment
+	// generation input with interconnection limit
 	std::vector<double> systemGenerationLifetime_kW;
 
-	// pre-curailed generation output
+	// pre-interconnected limited generation output
 	std::vector<double> systemGenerationPreInterconnect_kW;
 
 	// electric load input
