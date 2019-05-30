@@ -864,6 +864,9 @@ static var_info _cm_vtab_singleowner[] = {
 	{ SSC_OUTPUT, SSC_NUMBER, "min_dscr", "Minimum DSCR", "", "", "DSCR", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_pretax_dscr", "DSCR (pre-tax)", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
 
+	{ SSC_OUTPUT, SSC_ARRAY, "cf_energy_curtailed", "Curtailed energy", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_OUTPUT, SSC_ARRAY, "cf_curtailment_value", "Curtailed revenue", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
+
 
 var_info_invalid };
 
@@ -874,14 +877,15 @@ extern var_info
 	vtab_payment_incentives[],
 	vtab_financial_capacity_payments[],
 	vtab_financial_grid[],
-	vtab_revenue_model[],
 	vtab_fuelcell_replacement_cost[],
 	vtab_battery_replacement_cost[];
 
 enum {
 	CF_energy_net,
+	CF_energy_curtailed,
 	CF_energy_value,
 	CF_thermal_value,
+	CF_curtailment_value,
 	CF_ppa_price,
 
 	CF_om_fixed_expense,
@@ -1082,10 +1086,11 @@ public:
 		add_var_info( vtab_oandm );
 		add_var_info( vtab_tax_credits );
 		add_var_info( vtab_payment_incentives );
-//		add_var_info(vtab_advanced_financing_cost);
 		add_var_info( _cm_vtab_singleowner );
 		add_var_info(vtab_battery_replacement_cost);
 		add_var_info(vtab_fuelcell_replacement_cost);
+		add_var_info(vtab_financial_capacity_payments);
+		add_var_info(vtab_financial_grid);
 	}
 
 	void exec( ) throw( general_error )
@@ -1302,7 +1307,6 @@ public:
 
 		hourly_energy_calcs.calculate(this);
 
-
 		// dispatch
 		if (as_integer("system_use_lifetime_output") == 1)
 		{
@@ -1322,6 +1326,17 @@ public:
 			for (i = 1; i <= nyears; i++)
 				cf.at(CF_energy_net, i) = first_year_energy * cf.at(CF_degradation, i);
 		}
+
+		// curtailed energy and revenue
+		ssc_number_t pre_curtailement_year1_energy = as_number("annual_energy_pre_curtailment_ac");
+		ssc_number_t curtailement_price = as_number("grid_curtailment_price");
+		for (size_t y = 1; y <= (size_t)nyears; y++)
+		{
+			cf.at(CF_energy_curtailed, y) = pre_curtailement_year1_energy * cf.at(CF_degradation, y)
+				- cf.at(CF_energy_net, y);
+			cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * curtailement_price;
+		}
+
 
 		first_year_energy = cf.at(CF_energy_net, 1);
 
@@ -2191,7 +2206,9 @@ public:
 
 //			log(util::format("year %d : energy value =%lg", i, m_disp_calcs.tod_energy_value(i)), SSC_WARNING);
 			// total revenue
-			cf.at(CF_total_revenue,i) = cf.at(CF_energy_value,i) + cf.at(CF_thermal_value,i) +
+			cf.at(CF_total_revenue,i) = cf.at(CF_energy_value,i) + 
+				cf.at(CF_thermal_value,i) + 
+				cf.at(CF_curtailment_value,i) +
 				pbi_fed_for_ds_frac * cf.at(CF_pbi_fed,i) +
 				pbi_sta_for_ds_frac * cf.at(CF_pbi_sta,i) +
 				pbi_uti_for_ds_frac * cf.at(CF_pbi_uti,i) +
@@ -2206,11 +2223,11 @@ public:
 		// receivables precalculation need future energy value so outside previous loop
 		if (nyears>0)
 		{
-			cf.at(CF_reserve_receivables, 0) = months_receivables_reserve_frac * (cf.at(CF_energy_value, 1) + cf.at(CF_thermal_value, 1));
+			cf.at(CF_reserve_receivables, 0) = months_receivables_reserve_frac * (cf.at(CF_energy_value, 1) + cf.at(CF_thermal_value, 1) + cf.at(CF_curtailment_value, 1));
 			cf.at(CF_funding_receivables, 0) = cf.at(CF_reserve_receivables, 0);
 			for (i = 1; i<nyears; i++)
 			{
-				cf.at(CF_reserve_receivables, i) = months_receivables_reserve_frac * (cf.at(CF_energy_value, i + 1) + cf.at(CF_thermal_value, i+1));
+				cf.at(CF_reserve_receivables, i) = months_receivables_reserve_frac * (cf.at(CF_energy_value, i + 1) + cf.at(CF_thermal_value, i+1) + cf.at(CF_curtailment_value, i+1));
 				cf.at(CF_funding_receivables, i) = cf.at(CF_reserve_receivables, i) - cf.at(CF_reserve_receivables, i - 1);
 			}
 			cf.at(CF_disbursement_receivables, nyears) = -cf.at(CF_reserve_receivables, nyears - 1);
@@ -3157,8 +3174,11 @@ public:
 		save_cf( CF_debt_payment_principal, nyears, "cf_debt_payment_principal" );
 		save_cf( CF_debt_balance, nyears, "cf_debt_balance" );
 
+
 		save_cf(CF_energy_value, nyears, "cf_energy_value");
 		save_cf(CF_thermal_value, nyears, "cf_thermal_value");
+		save_cf(CF_curtailment_value, nyears, "cf_curtailment_value");
+		save_cf(CF_energy_curtailed, nyears, "cf_energy_curtailed");
 		save_cf( CF_ppa_price, nyears, "cf_ppa_price" );
 		save_cf( CF_om_fixed_expense, nyears, "cf_om_fixed_expense" );
 		save_cf( CF_om_production_expense, nyears, "cf_om_production_expense" );

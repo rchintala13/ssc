@@ -124,7 +124,7 @@ void cm_grid::exec() throw (general_error)
 	for (size_t i = 0; i < gridVars->numberOfLifetimeRecords; i++) 
 	{
 		double gridNet = gridVars->systemGenerationLifetime_kW[i] - gridVars->loadLifetime_kW[i];
-		double gridNetInterconnectionLimited = 0;
+		double gridNetInterconnectionLimited = gridNet;
 
 		p_genPreInterconnect_kW[i] = static_cast<ssc_number_t>(gridVars->systemGenerationLifetime_kW[i]);
 

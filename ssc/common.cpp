@@ -96,14 +96,9 @@ var_info_invalid };
 var_info vtab_financial_grid[] = {
 
 	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
-		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment_price",                           "Curtailment price",                                  "$/kWh",  "",                      "Financial Grid",      "*",                   "",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "grid_interconnection_limit",                           "Payment amount",                                  "MW",  "",                      "Financial Grid",      "*",                   "",          "" },
-var_info_invalid };
+		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment_price",                           "Curtailment price",                                  "$/kWh",  "",                      "Financial Grid",      "?=0",                   "",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "annual_energy_pre_curtailment_ac", "Annual Energy AC pre-curtailment (year 1)",   "kWh",        "",                "",                           "?=0",                     "",                              "" },
 
-var_info vtab_revenue_model[] = {
-
-	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
-		{ SSC_INPUT,        SSC_NUMBER,      "revenue_model",                           "Revenue model",                                  "",  "0=PPA revenue,1=Ancillary services",                      "Revenue model",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
 var_info_invalid };
 
 
