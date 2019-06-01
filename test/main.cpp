@@ -15,6 +15,7 @@ GTEST_API_ int main(int argc, char **argv) {
 //	  ::testing::GTEST_FLAG(filter) = "SunsetCaseIrradProc*";
 //	  ::testing::GTEST_FLAG(filter) = "BatteryPowerFlowTest*";
 //	  ::testing::GTEST_FLAG(filter) = "CMGrid*";
+//	::testing::GTEST_FLAG(filter) = "CMGeneric.SingleOwnerWithBattery";
 
 	int status = RUN_ALL_TESTS();
 

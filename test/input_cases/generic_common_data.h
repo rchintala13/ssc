@@ -385,6 +385,21 @@ void generic_singleowner_battery_60min(ssc_data_t &data)
 	ssc_data_set_number( data, "depr_fedbas_method", 1 );
 	ssc_data_set_number( data, "battery_per_kWh", 300 );
 	ssc_data_set_number( data, "batt_replacement_cost_escal", 0 );
+
+	ssc_data_set_number(data, "cp_payment_type", 0 );
+	ssc_data_set_number(data, "cp_payment_amount", 0);
+	ssc_data_set_number(data, "cp_eligible_capacity", 0);
+	ssc_data_set_number(data, "cp_fixed_monthly", 0);
+	ssc_data_set_number(data, "cp_fixed_annual", 0);
+	ssc_number_t p_zero_array[1] = { 0 };
+	ssc_data_set_array(data, "cp_variable_amount", p_zero_array, 1);
+	ssc_data_set_number(data, "cp_fixed_percent_nameplate", 0);
+	ssc_data_set_array(data, "cp_variable_percent_nameplate", p_zero_array, 1);
+	ssc_data_set_number(data, "grid_curtailment_price", 0);
+	ssc_data_set_number(data, "enable_interconnection_limit", 0);
+	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 100000);
+	ssc_data_set_number(data, "grid_curtailment:constant", 0);
+
 }
 
 void generic_commerical_battery_60min(ssc_data_t &data)
