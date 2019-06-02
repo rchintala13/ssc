@@ -6,6 +6,7 @@
 
 namespace generictest {
 	char load_profile_path_60min[256];
+	char curtailment_profile_path_60min[256];
 	char load_profile_path_30min[256];
 	char gen_path_60min[256];
 	char gen_path_30min[256];
@@ -27,6 +28,8 @@ namespace generictest {
 	int n8 = sprintf(sell_rate_unused, "%s/test/input_cases/generic_system_data/ur_ts_sell_rate.csv",SSCDIR);
 	int n9 = sprintf(temperature_path, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_60min.csv",SSCDIR);
 	int n10 = sprintf(temperature_path_30min, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_30min.csv",SSCDIR);
+	int n11= sprintf(curtailment_profile_path_60min, "%s/test/input_cases/general_data/grid_curtailment_60min_0percent.csv", SSCDIR);
+
 }
 
 
@@ -395,10 +398,13 @@ void generic_singleowner_battery_60min(ssc_data_t &data)
 	ssc_data_set_array(data, "cp_variable_amount", p_zero_array, 1);
 	ssc_data_set_number(data, "cp_fixed_percent_nameplate", 0);
 	ssc_data_set_array(data, "cp_variable_percent_nameplate", p_zero_array, 1);
+	ssc_data_set_number(data, "cp_capacity_nameplate_type", 0);
+	ssc_data_set_number(data, "cp_system_nameplate", 20.000888824462891);
+	ssc_data_set_number(data, "cp_other_nameplate", 0);
 	ssc_data_set_number(data, "grid_curtailment_price", 0);
 	ssc_data_set_number(data, "enable_interconnection_limit", 0);
 	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 100000);
-	ssc_data_set_number(data, "grid_curtailment:constant", 0);
+	set_array(data, "grid_curtailment", generictest::curtailment_profile_path_60min, 8760);
 
 }
 

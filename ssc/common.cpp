@@ -82,14 +82,17 @@ var_info_invalid };
 var_info vtab_financial_capacity_payments[] = {
 
 	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "0=Energy basis,1=fixed amount",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "0=Energy basis,1=Fixed amount",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_amount",                           "Payment amount",                                  "",  "0=Fixed monthly,1=fixed annual,2=Variable",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=2",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_eligible_capacity",                           "Eligible capacity",                                  "",  "0=Fixed percentage of nameplate,1=Variable",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_eligible_capacity",                           "Eligible capacity",                                  "",  "0=Fixed percentage of nameplate,1=Variable percentage of nameplate",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_monthly",                           "Fixed monthly payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_annual",                           "Fixed annual payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_amount",                           "Variable payment",                                  "$",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_NUMBER,      "cp_fixed_percent_nameplate",                           "Eligible fixed percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
 		{ SSC_INPUT,        SSC_ARRAY,      "cp_variable_percent_nameplate",                           "Eligible variable percent of nameplate payment",                                  "%",  "",                      "Capacity Payments",      "*",                   "",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_capacity_nameplate_type",                           "Capacity nameplate type",                                  "",  "0=System nameplate,1=Other nameplate",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_system_nameplate",                           "Capacity system nameplate",                                  "MW",  "",                      "Capacity Payments",      "*",                   "MIN=0",          "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_other_nameplate",                           "Capacity other nameplate",                                  "MW",  "",                      "Capacity Payments",      "*",                   "MIN=0",          "" },
 
 var_info_invalid };
 
@@ -382,13 +385,10 @@ var_info vtab_sf_adjustment_factors[] = {
 	
 var_info_invalid };
 
-var_info vtab_grid_curtailment_adjustment_factors[] = {
+var_info vtab_grid_curtailment[] = {
 	/*   VARTYPE           DATATYPE         NAME                               LABEL                                       UNITS     META                                     GROUP                 REQUIRED_IF                 CONSTRAINTS                      UI_HINTS*/
 
-		{ SSC_INPUT,        SSC_NUMBER,      "grid_curtailment:constant",            "Grid Curtailment Constant loss adjustment",             "%",    "",                                     "Loss Adjustments",      "*",                     "MAX=100",                     "" },
-		{ SSC_INPUT,        SSC_ARRAY,       "grid_curtailment:hourly",              "Grid Curtailment Hourly loss adjustments",              "%",    "",                                     "Loss Adjustments",      "?",                     "LENGTH=8760",                "" },
-		{ SSC_INPUT,        SSC_MATRIX,      "grid_curtailment:periods",             "Grid Curtailment Period-based loss adjustments",        "%",    "n x 3 matrix [ start, end, loss ]",    "Loss Adjustments",      "?",                     "COLS=3",                     "" },
-
+		{ SSC_INPUT,        SSC_ARRAY,       "grid_curtailment",              "Grid curtailment",              "%",    "",                                     "Loss Adjustments",      "?",                     "",                "" },
 	var_info_invalid };
 
 

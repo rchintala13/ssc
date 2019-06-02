@@ -68,7 +68,7 @@ extern var_info vtab_payment_incentives[];
 extern var_info vtab_adjustment_factors[];
 extern var_info vtab_dc_adjustment_factors[];
 extern var_info vtab_sf_adjustment_factors[];
-extern var_info vtab_grid_curtailment_adjustment_factors[];
+extern var_info vtab_grid_curtailment[];
 extern var_info vtab_technology_outputs[];
 
 class adjustment_factors

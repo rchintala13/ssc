@@ -95,7 +95,7 @@ cm_grid::cm_grid()
 	add_var_info(vtab_grid_input);
 	add_var_info(vtab_grid_output);
 	add_var_info(vtab_technology_outputs);
-	add_var_info(vtab_grid_curtailment_adjustment_factors);
+	add_var_info(vtab_grid_curtailment);
 }
 
 // Have to add this since compute module isn't actually fully constructed until compute is called with
@@ -104,7 +104,6 @@ void cm_grid::construct()
 {
 	std::unique_ptr<gridVariables> tmp(new gridVariables(*this));
 	gridVars = std::move(tmp);
-	gridVars->haf.setup();
 	allocateOutputs();
 }
 
@@ -136,7 +135,7 @@ void cm_grid::exec() throw (general_error)
 		p_genPreCurtailment_kW[i] = static_cast<ssc_number_t>(gridVars->systemGenerationLifetime_kW[i]);
 
 		// compute curtailment
-		gridVars->systemGenerationLifetime_kW[i] *= gridVars->haf(hour);
+		gridVars->systemGenerationLifetime_kW[i] *= (1.0 - gridVars->gridCurtailmentLifetime_percent[i]/100.0);
 
 		p_genGrid_kW[i] = static_cast<ssc_number_t>(gridVars->systemGenerationLifetime_kW[i]);
 

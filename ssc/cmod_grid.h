@@ -62,16 +62,15 @@ public:
 //	gridVariables() {/* nothing to do */ };
 	gridVariables(compute_module & cm) : 
 		enable_interconnection_limit(cm.as_boolean("enable_interconnection_limit")),
-		grid_interconnection_limit_kW(cm.as_double("grid_interconnection_limit_kwac")),
-		haf(&cm, "grid_curtailment")
+		grid_interconnection_limit_kW(cm.as_double("grid_interconnection_limit_kwac"))
 	{
 
 
 		// System generation output, which is lifetime (if system_lifetime_output == true);
 		systemGenerationLifetime_kW = cm.as_vector_double("gen");
-		std::vector<double> load_year_one;
 		size_t n_rec_lifetime = systemGenerationLifetime_kW.size();
 		size_t n_rec_single_year;
+		std::vector<double> load_year_one;
 		if (cm.is_assigned("load")) {
 			load_year_one = cm.as_vector_double("load");
 		}
@@ -85,7 +84,22 @@ public:
 			loadLifetime_kW,
 			n_rec_single_year,
 			dt_hour_gen);
-	
+
+		std::vector<double> curtailment_year_one;
+		if (cm.is_assigned("grid_curtailment")) {
+			curtailment_year_one = cm.as_vector_double("grid_curtailment");
+		}
+		single_year_to_lifetime_interpolated<double>(
+			(bool)cm.as_integer("system_use_lifetime_output"),
+			(size_t)cm.as_integer("analysis_period"),
+			n_rec_lifetime,
+			curtailment_year_one,
+			gridCurtailmentLifetime_percent,
+			n_rec_single_year,
+			dt_hour_gen);
+
+
+
 		numberOfLifetimeRecords = n_rec_lifetime;
 		numberOfSingleYearRecords = n_rec_single_year;
 		numberOfYears = n_rec_lifetime / n_rec_single_year;
@@ -95,8 +109,8 @@ public:
 
 		
 	}
-	// curtailment hourly adjustment factors
-	adjustment_factors haf;
+	// curtailment percentage input
+	std::vector<double> gridCurtailmentLifetime_percent;
 
 	// generation input with interconnection limit
 	std::vector<double> systemGenerationLifetime_kW;
