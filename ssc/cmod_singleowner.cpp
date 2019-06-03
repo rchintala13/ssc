@@ -864,8 +864,10 @@ static var_info _cm_vtab_singleowner[] = {
 	{ SSC_OUTPUT, SSC_NUMBER, "min_dscr", "Minimum DSCR", "", "", "DSCR", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_pretax_dscr", "DSCR (pre-tax)", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
 
-	{ SSC_OUTPUT, SSC_ARRAY, "cf_energy_curtailed", "Curtailed energy", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
-	{ SSC_OUTPUT, SSC_ARRAY, "cf_curtailment_value", "Curtailed revenue", "", "", "DSCR", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_OUTPUT, SSC_ARRAY, "cf_energy_curtailed", "Curtailed energy", "kWh", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_OUTPUT, SSC_ARRAY, "cf_curtailment_value", "Curtailed revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_OUTPUT, SSC_ARRAY, "cf_capacity_payment", "Capacity payment", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+
 
 
 var_info_invalid };
@@ -886,6 +888,7 @@ enum {
 	CF_energy_value,
 	CF_thermal_value,
 	CF_curtailment_value,
+	CF_capacity_payment,
 	CF_ppa_price,
 
 	CF_om_fixed_expense,
@@ -1336,11 +1339,49 @@ public:
 				- cf.at(CF_energy_net, y);
 			cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * curtailement_price;
 		}
+		
+		// capacity payment
+		int cp_payment_type = as_integer("cp_payment_type");
+		int cp_payment_amount = as_integer("cp_payment_amount");
+		ssc_number_t cp_fixed_monthly = as_number("cp_fixed_monthly");
+		ssc_number_t cp_fixed_annual = as_number("cp_fixed_annual");
+		size_t count_cp_variable_amount = 0;
+		ssc_number_t *cp_variable_amount = 0;
+		cp_variable_amount = as_array("cp_variable_amount", &count_cp_variable_amount);
+		ssc_number_t cp_first_year = 0;
+		if (cp_payment_type == 1)  // fixed payment ($)
+		{
+			switch (cp_payment_amount)
+			{
+				case 0: // monthly
+					{
+					for (size_t i = 0; i < 12; i++)
+						cp_first_year += cp_fixed_monthly;
+					}
+					break;
+				case 1: // annual
+					{
+						cp_first_year += cp_fixed_annual;
+					}
+					break;
+				case 2: // variable (timestep)
+					{
+					for (size_t i = 0; i < count_cp_variable_amount; i++)
+						cp_first_year += cp_variable_amount[i];
+					}
+					break;
+				default:
+					break;
+			}
+		}
+		for (size_t y = 1; y <= (size_t)nyears; y++)
+		{
+			cf.at(CF_capacity_payment, y) = cp_first_year * pow(1 +  inflation_rate, y-1);
+		}
 
 
 		first_year_energy = cf.at(CF_energy_net, 1);
-
-
+		
 
 		std::vector<double> degrade_cf;
 		for (i = 0; i <= nyears; i++)
@@ -2208,7 +2249,8 @@ public:
 			// total revenue
 			cf.at(CF_total_revenue,i) = cf.at(CF_energy_value,i) + 
 				cf.at(CF_thermal_value,i) + 
-				cf.at(CF_curtailment_value,i) +
+				cf.at(CF_curtailment_value, i) +
+				cf.at(CF_capacity_payment, i) +
 				pbi_fed_for_ds_frac * cf.at(CF_pbi_fed,i) +
 				pbi_sta_for_ds_frac * cf.at(CF_pbi_sta,i) +
 				pbi_uti_for_ds_frac * cf.at(CF_pbi_uti,i) +
@@ -2223,11 +2265,11 @@ public:
 		// receivables precalculation need future energy value so outside previous loop
 		if (nyears>0)
 		{
-			cf.at(CF_reserve_receivables, 0) = months_receivables_reserve_frac * (cf.at(CF_energy_value, 1) + cf.at(CF_thermal_value, 1) + cf.at(CF_curtailment_value, 1));
+			cf.at(CF_reserve_receivables, 0) = months_receivables_reserve_frac * (cf.at(CF_energy_value, 1) + cf.at(CF_thermal_value, 1) + cf.at(CF_curtailment_value, 1) + cf.at(CF_capacity_payment, 1));
 			cf.at(CF_funding_receivables, 0) = cf.at(CF_reserve_receivables, 0);
 			for (i = 1; i<nyears; i++)
 			{
-				cf.at(CF_reserve_receivables, i) = months_receivables_reserve_frac * (cf.at(CF_energy_value, i + 1) + cf.at(CF_thermal_value, i+1) + cf.at(CF_curtailment_value, i+1));
+				cf.at(CF_reserve_receivables, i) = months_receivables_reserve_frac * (cf.at(CF_energy_value, i + 1) + cf.at(CF_thermal_value, i+1) + cf.at(CF_curtailment_value, i+1) + cf.at(CF_capacity_payment, i + 1));
 				cf.at(CF_funding_receivables, i) = cf.at(CF_reserve_receivables, i) - cf.at(CF_reserve_receivables, i - 1);
 			}
 			cf.at(CF_disbursement_receivables, nyears) = -cf.at(CF_reserve_receivables, nyears - 1);
@@ -3178,6 +3220,7 @@ public:
 		save_cf(CF_energy_value, nyears, "cf_energy_value");
 		save_cf(CF_thermal_value, nyears, "cf_thermal_value");
 		save_cf(CF_curtailment_value, nyears, "cf_curtailment_value");
+		save_cf(CF_capacity_payment, nyears, "cf_capacity_payment");
 		save_cf(CF_energy_curtailed, nyears, "cf_energy_curtailed");
 		save_cf( CF_ppa_price, nyears, "cf_ppa_price" );
 		save_cf( CF_om_fixed_expense, nyears, "cf_om_fixed_expense" );
