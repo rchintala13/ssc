@@ -1349,14 +1349,96 @@ public:
 		ssc_number_t *cp_variable_amount = 0;
 		cp_variable_amount = as_array("cp_variable_amount", &count_cp_variable_amount);
 		ssc_number_t cp_first_year = 0;
-		if (cp_payment_type == 1)  // fixed payment ($)
+		if (cp_payment_type == 0)  // capacity based payment ($/MW)
+		{
+			// determine nameplate selected
+			int cp_capacity_nameplate_type = as_integer("cp_capacity_nameplate_type");
+			ssc_number_t cp_nameplate = nameplate /1000.0; // kW to MW
+			if (cp_capacity_nameplate_type == 1)
+				cp_nameplate = as_number("cp_other_nameplate");
+			// determine percentage of nameplate 0 = fixed, 1= variable (timestep)
+			int cp_eligible_capacity = as_integer("cp_eligible_capacity");
+			size_t count_cp_variable_percent_nameplate = 0;
+			ssc_number_t *cp_variable_percent_nameplate = 0;
+			ssc_number_t cp_fixed_percent_nameplate = 0;
+			if (cp_eligible_capacity == 0) // fixed
+			{
+				count_cp_variable_percent_nameplate = 1;
+				cp_fixed_percent_nameplate = as_number("cp_fixed_percent_nameplate");
+			}
+			else if (cp_eligible_capacity == 1) // variable
+			{
+				cp_variable_percent_nameplate = as_array("cp_variable_percent_nameplate", &count_cp_variable_percent_nameplate);
+			}
+			else
+			{
+				throw exec_error("singleowner", util::format("No valid eligible capacity (%d) specified for capacity payments.", cp_eligible_capacity));
+			}
+			switch (cp_payment_amount)
+			{
+			case 0: // monthly
+				{
+					if (cp_eligible_capacity == 0) // fixed
+					{
+						for (size_t i = 0; i < 12; i++)
+							cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_fixed_monthly;
+					}
+					else if (cp_eligible_capacity == 1) // variable
+					{
+						for (size_t i = 0; i < count_cp_variable_percent_nameplate; i++)
+							cp_first_year += (cp_variable_percent_nameplate[i] / 100.0) * cp_nameplate * cp_fixed_monthly;
+					}
+				}
+				break;
+			case 1: // annual
+				{
+					if (cp_eligible_capacity == 0) // fixed
+					{
+						cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_fixed_annual;
+					}
+					else if (cp_eligible_capacity == 1) // variable (same as monthly above)
+					{
+						for (size_t i = 0; i < count_cp_variable_percent_nameplate; i++)
+							cp_first_year += (cp_variable_percent_nameplate[i] / 100.0) * cp_nameplate * cp_fixed_annual;
+					}
+				}
+				break;
+			case 2: // variable (timestep)
+				{
+					if (cp_eligible_capacity == 0) // fixed
+					{
+						for (size_t i = 0; i < count_cp_variable_amount; i++)
+							cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_variable_amount[i];
+					}
+					else if (cp_eligible_capacity == 1) // variable
+					{
+						if (count_cp_variable_amount != count_cp_variable_percent_nameplate)
+						{
+							throw exec_error("singleowner", util::format("The variable payment amount length (%d) is not equal to the variable eligible capacity percentage length (%d) specified for capacity payments.", count_cp_variable_amount, count_cp_variable_percent_nameplate));
+						}
+						else
+						{
+							for (size_t i = 0; i < count_cp_variable_amount; i++)
+								cp_first_year += (cp_variable_percent_nameplate[i] / 100.0)  * cp_nameplate * cp_variable_amount[i];
+						}
+					}
+				}
+				break;
+			default:
+				{
+					throw exec_error("singleowner", util::format("No valid payment amount period (%d) specified for capacity payments.", cp_payment_amount));
+				}
+				break;
+			}
+		}
+		else if (cp_payment_type == 1)  // fixed payment ($)
 		{
 			switch (cp_payment_amount)
 			{
 				case 0: // monthly
 					{
-					for (size_t i = 0; i < 12; i++)
-						cp_first_year += cp_fixed_monthly;
+						for (size_t i = 0; i < 12; i++)
+							cp_first_year += cp_fixed_monthly;
 					}
 					break;
 				case 1: // annual
@@ -1366,13 +1448,20 @@ public:
 					break;
 				case 2: // variable (timestep)
 					{
-					for (size_t i = 0; i < count_cp_variable_amount; i++)
-						cp_first_year += cp_variable_amount[i];
+						for (size_t i = 0; i < count_cp_variable_amount; i++)
+							cp_first_year += cp_variable_amount[i];
 					}
 					break;
 				default:
+					{
+						throw exec_error("singleowner", util::format("No valid payment amount period (%d) specified for capacity payments.", cp_payment_amount));
+					}
 					break;
 			}
+		}
+		else
+		{
+			throw exec_error("singleowner", util::format("No valid payment type (%d) specified for capacity payments.", cp_payment_type));
 		}
 		for (size_t y = 1; y <= (size_t)nyears; y++)
 		{
