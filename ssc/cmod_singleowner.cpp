@@ -1342,13 +1342,15 @@ public:
 		// curtailed energy and revenue
 		ssc_number_t pre_curtailement_year1_energy = as_number("annual_energy_pre_curtailment_ac");
 		ssc_number_t curtailement_price = as_number("grid_curtailment_price");
+		ssc_number_t curtailement_price_esc = as_number("grid_curtailment_price_esc")/100.0;
 		for (size_t y = 1; y <= (size_t)nyears; y++)
 		{
 			cf.at(CF_energy_curtailed, y) = pre_curtailement_year1_energy * cf.at(CF_degradation, y)
 				- cf.at(CF_energy_net, y);
-			cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * curtailement_price;
+			cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * curtailement_price * pow(1+curtailement_price_esc, y-1);
 		}
-		
+
+
 		// capacity payment
 		int cp_payment_type = as_integer("cp_payment_type");
 		int cp_payment_amount = as_integer("cp_payment_amount");
@@ -1472,9 +1474,12 @@ public:
 		{
 			throw exec_error("singleowner", util::format("No valid payment type (%d) specified for capacity payments.", cp_payment_type));
 		}
+
+		ssc_number_t cp_payment_esc = as_number("cp_payment_esc")/100.0;
+
 		for (size_t y = 1; y <= (size_t)nyears; y++)
 		{
-			cf.at(CF_capacity_payment, y) = cp_first_year * pow(1 +  inflation_rate, y-1);
+			cf.at(CF_capacity_payment, y) = cp_first_year * pow(1 + cp_payment_esc, y-1);
 		}
 
 
