@@ -1341,146 +1341,73 @@ public:
 
 		// curtailed energy and revenue
 		ssc_number_t pre_curtailement_year1_energy = as_number("annual_energy_pre_curtailment_ac");
-		ssc_number_t curtailement_price = as_number("grid_curtailment_price");
-		ssc_number_t curtailement_price_esc = as_number("grid_curtailment_price_esc")/100.0;
+		size_t count_curtailment_price;
+		ssc_number_t *grid_curtailment_price = as_array("grid_curtailment_price", &count_curtailment_price);
+		ssc_number_t grid_curtailment_price_esc = as_number("grid_curtailment_price_esc") * 0.01;
+		// does not work with degraded energy production escal_or_annual(CF_curtailment_value, nyears, "grid_curtailment_price", 0.0, pre_curtailement_year1_energy, false, as_double("grid_curtailment_price_esc")*0.01);
 		for (size_t y = 1; y <= (size_t)nyears; y++)
 		{
-			cf.at(CF_energy_curtailed, y) = pre_curtailement_year1_energy * cf.at(CF_degradation, y)
-				- cf.at(CF_energy_net, y);
-			cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * curtailement_price * pow(1+curtailement_price_esc, y-1);
+			cf.at(CF_energy_curtailed, y) = pre_curtailement_year1_energy * cf.at(CF_degradation, y) - cf.at(CF_energy_net, y);
+			if (count_curtailment_price == 1)
+				cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * grid_curtailment_price[0] * pow(1 + grid_curtailment_price_esc, y - 1);
+			else if (y <= count_curtailment_price)// schedule
+				cf.at(CF_curtailment_value, y) = cf.at(CF_energy_curtailed, y) * grid_curtailment_price[y - 1];
+			else
+				cf.at(CF_curtailment_value, y) = 0.0;
 		}
 
 
 		// capacity payment
 		int cp_payment_type = as_integer("cp_payment_type");
-		int cp_payment_amount = as_integer("cp_payment_amount");
-		ssc_number_t cp_fixed_monthly = as_number("cp_fixed_monthly");
-		ssc_number_t cp_fixed_annual = as_number("cp_fixed_annual");
-		size_t count_cp_variable_amount = 0;
-		ssc_number_t *cp_variable_amount = 0;
-		cp_variable_amount = as_array("cp_variable_amount", &count_cp_variable_amount);
-		ssc_number_t cp_first_year = 0;
-		if (cp_payment_type == 0)  // capacity based payment ($/MW)
+		if (cp_payment_type < 0 || cp_payment_type > 1)
+			throw exec_error("singleowner", util::format("Invalid capacity payment type (%d).", cp_payment_type));
+		
+		size_t count_cp_payment_amount;
+		ssc_number_t *cp_payment_amount = as_array("cp_payment_amount", &count_cp_payment_amount);
+		ssc_number_t cp_payment_esc = as_number("cp_payment_esc") *0.01;
+		if (count_cp_payment_amount == 1)
 		{
-			// determine nameplate selected
-			int cp_capacity_nameplate_type = as_integer("cp_capacity_nameplate_type");
-			ssc_number_t cp_nameplate = nameplate /1000.0; // kW to MW
-			if (cp_capacity_nameplate_type == 1)
-				cp_nameplate = as_number("cp_other_nameplate");
-			// determine percentage of nameplate 0 = fixed, 1= variable (timestep)
-			int cp_eligible_capacity = as_integer("cp_eligible_capacity");
-			size_t count_cp_variable_percent_nameplate = 0;
-			ssc_number_t *cp_variable_percent_nameplate = 0;
-			ssc_number_t cp_fixed_percent_nameplate = 0;
-			if (cp_eligible_capacity == 0) // fixed
-			{
-				count_cp_variable_percent_nameplate = 1;
-				cp_fixed_percent_nameplate = as_number("cp_fixed_percent_nameplate");
-			}
-			else if (cp_eligible_capacity == 1) // variable
-			{
-				cp_variable_percent_nameplate = as_array("cp_variable_percent_nameplate", &count_cp_variable_percent_nameplate);
-			}
-			else
-			{
-				throw exec_error("singleowner", util::format("No valid eligible capacity (%d) specified for capacity payments.", cp_eligible_capacity));
-			}
-			switch (cp_payment_amount)
-			{
-			case 0: // monthly
-				{
-					if (cp_eligible_capacity == 0) // fixed
-					{
-						for (size_t i = 0; i < 12; i++)
-							cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_fixed_monthly;
-					}
-					else if (cp_eligible_capacity == 1) // variable
-					{
-						for (size_t i = 0; i < count_cp_variable_percent_nameplate; i++)
-							cp_first_year += (cp_variable_percent_nameplate[i] / 100.0) * cp_nameplate * cp_fixed_monthly;
-					}
-				}
-				break;
-			case 1: // annual
-				{
-					if (cp_eligible_capacity == 0) // fixed
-					{
-						cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_fixed_annual;
-					}
-					else if (cp_eligible_capacity == 1) // variable (same as monthly above)
-					{
-						for (size_t i = 0; i < count_cp_variable_percent_nameplate; i++)
-							cp_first_year += (cp_variable_percent_nameplate[i] / 100.0) * cp_nameplate * cp_fixed_annual;
-					}
-				}
-				break;
-			case 2: // variable (timestep)
-				{
-					if (cp_eligible_capacity == 0) // fixed
-					{
-						for (size_t i = 0; i < count_cp_variable_amount; i++)
-							cp_first_year += (cp_fixed_percent_nameplate / 100.0) * cp_nameplate * cp_variable_amount[i];
-					}
-					else if (cp_eligible_capacity == 1) // variable
-					{
-						if (count_cp_variable_amount != count_cp_variable_percent_nameplate)
-						{
-							throw exec_error("singleowner", util::format("The variable payment amount length (%d) is not equal to the variable eligible capacity percentage length (%d) specified for capacity payments.", count_cp_variable_amount, count_cp_variable_percent_nameplate));
-						}
-						else
-						{
-							for (size_t i = 0; i < count_cp_variable_amount; i++)
-								cp_first_year += (cp_variable_percent_nameplate[i] / 100.0)  * cp_nameplate * cp_variable_amount[i];
-						}
-					}
-				}
-				break;
-			default:
-				{
-					throw exec_error("singleowner", util::format("No valid payment amount period (%d) specified for capacity payments.", cp_payment_amount));
-				}
-				break;
-			}
-		}
-		else if (cp_payment_type == 1)  // fixed payment ($)
-		{
-			switch (cp_payment_amount)
-			{
-				case 0: // monthly
-					{
-						for (size_t i = 0; i < 12; i++)
-							cp_first_year += cp_fixed_monthly;
-					}
-					break;
-				case 1: // annual
-					{
-						cp_first_year += cp_fixed_annual;
-					}
-					break;
-				case 2: // variable (timestep)
-					{
-						for (size_t i = 0; i < count_cp_variable_amount; i++)
-							cp_first_year += cp_variable_amount[i];
-					}
-					break;
-				default:
-					{
-						throw exec_error("singleowner", util::format("No valid payment amount period (%d) specified for capacity payments.", cp_payment_amount));
-					}
-					break;
-			}
+			for (size_t y = 1; y <= (size_t)nyears; y++)
+				cf.at(CF_capacity_payment, y) = cp_payment_amount[0] * pow(1 + cp_payment_esc, y - 1);
 		}
 		else
 		{
-			throw exec_error("singleowner", util::format("No valid payment type (%d) specified for capacity payments.", cp_payment_type));
+			for (size_t y = 1; y <= (size_t)nyears; y++)
+			{
+				if (y <= count_cp_payment_amount)
+					cf.at(CF_capacity_payment, y) = cp_payment_amount[y - 1];
+				else
+					cf.at(CF_capacity_payment, y) = 0.0;
+			}
 		}
-
-		ssc_number_t cp_payment_esc = as_number("cp_payment_esc")/100.0;
-
-		for (size_t y = 1; y <= (size_t)nyears; y++)
+		if (cp_payment_type == 0)  // capacity based payment ($/MW)
 		{
-			cf.at(CF_capacity_payment, y) = cp_first_year * pow(1 + cp_payment_esc, y-1);
+			// use system nameplate
+			ssc_number_t cp_nameplate = as_number("cp_system_nameplate");
+			size_t count_cp_nameplate_percentage = 0;
+			ssc_number_t *cp_nameplate_percentage = as_array("cp_nameplate_percentage", &count_cp_nameplate_percentage);
+			if (count_cp_nameplate_percentage == 1)
+			{
+				for (size_t y = 1; y <= (size_t)nyears; y++)
+					cf.at(CF_capacity_payment, y) *= cp_nameplate_percentage[0]*0.01 * cp_nameplate;
+			}
+			else
+			{
+				for (size_t y = 1; y <= (size_t)nyears; y++)
+				{
+					if (y <= count_cp_nameplate_percentage)
+						cf.at(CF_capacity_payment, y) *= cp_nameplate_percentage[y - 1] * 0.01 * cp_nameplate;
+					else
+						cf.at(CF_capacity_payment, y) = 0.0;
+				}
+			}
 		}
+
+
+
+
+
+
 
 
 		first_year_energy = cf.at(CF_energy_net, 1);
