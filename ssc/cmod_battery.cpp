@@ -189,7 +189,7 @@ var_info vtab_battery_inputs[] = {
 	{ SSC_INPUT,        SSC_MATRIX,     "ur_ec_tou_mat",                               "Energy rates table",                                      "",        "",                       "",              "en_batt=1&batt_meter_position=1&batt_dispatch_choice=2",  "",          "" },
 
 	// PPA financial inputs
-	{ SSC_INPUT,        SSC_NUMBER,     "ppa_price_input",		                        "PPA Price Input",	                                        "",      "",                  "Time of Delivery", "en_batt=1&batt_meter_position=1&batt_dispatch_choice=2"   "",          "" },
+	{ SSC_INPUT,        SSC_ARRAY,     "ppa_price_input",		                        "PPA Price Input",	                                        "",      "",                  "Time of Delivery", "en_batt=1&batt_meter_position=1&batt_dispatch_choice=2"   "",          "" },
 	{ SSC_INPUT,        SSC_NUMBER,     "ppa_multiplier_model",                         "PPA multiplier model",                                    "0/1",    "0=diurnal,1=timestep","Time of Delivery", "?=0",                                                  "INTEGER,MIN=0", "" },
 	{ SSC_INPUT,        SSC_ARRAY,      "dispatch_factors_ts",                          "Dispatch payment factor time step",                        "",      "",                  "Time of Delivery", "en_batt=1&batt_meter_position=1&batt_dispatch_choice=2&ppa_multiplier_model=1", "", "" },
 	{ SSC_INPUT,        SSC_ARRAY,      "dispatch_tod_factors",		                    "TOD factors for periods 1-9",	                            "",      "",                  "Time of Delivery", "en_batt=1&batt_meter_position=1&batt_dispatch_choice=2&ppa_multiplier_model=0"   "",          "" },
@@ -389,7 +389,12 @@ battstor::battstor(compute_module &cm, bool setup_model, size_t nrec, double dt_
 
 				batt_vars->pv_clipping_forecast = cm.as_vector_double("batt_pv_clipping_forecast");
 				batt_vars->pv_dc_power_forecast = cm.as_vector_double("batt_pv_dc_forecast");
-				double ppa_price = cm.as_double("ppa_price_input");
+//				double ppa_price = cm.as_double("ppa_price_input");
+				// assuming first year ppa value
+				size_t count_ppa_price_input;
+				ssc_number_t* ppa_price_input = cm.as_array("ppa_price_input", &count_ppa_price_input);
+				double ppa_price = 0;
+				if (count_ppa_price_input > 0) ppa_price = ppa_price_input[0];
 				int ppa_multiplier_mode = cm.as_integer("ppa_multiplier_model");
 
 				if (ppa_multiplier_mode == 0) {

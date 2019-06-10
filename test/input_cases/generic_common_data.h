@@ -152,7 +152,10 @@ void generic_singleowner_battery_60min(ssc_data_t &data)
 	ssc_data_set_matrix( data, "ur_ec_sched_weekend", p_ur_ec_sched_weekend, 12, 24 );
 	ssc_number_t p_ur_ec_tou_mat[30] ={ 1, 1, 9.9999996802856925e+37, 0, 0.094169996678829193, 0, 2, 1, 400, 0, 0.096869997680187225, 0, 2, 2, 800, 0, 0.13817000389099121, 0, 2, 3, 3000, 0, 0.16166999936103821, 0, 2, 4, 9.9999996802856925e+37, 0, 0.17257000505924225, 0 };
 	ssc_data_set_matrix( data, "ur_ec_tou_mat", p_ur_ec_tou_mat, 5, 6 );
-	ssc_data_set_number( data, "ppa_price_input", 0 );
+//	ssc_data_set_number( data, "ppa_price_input", 0 );
+	ssc_number_t ppa_price_input[1] = { 0 };
+	ssc_data_set_array(data, "ppa_price_input", ppa_price_input, 1);
+
 	ssc_number_t p_dispatch_tod_factors[9] ={ 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 	ssc_data_set_array( data, "dispatch_tod_factors", p_dispatch_tod_factors, 9 );
 	ssc_number_t p_dispatch_sched_weekday[288] ={ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
@@ -389,19 +392,17 @@ void generic_singleowner_battery_60min(ssc_data_t &data)
 	ssc_data_set_number( data, "battery_per_kWh", 300 );
 	ssc_data_set_number( data, "batt_replacement_cost_escal", 0 );
 
-	ssc_data_set_number(data, "cp_payment_type", 0 );
-	ssc_data_set_number(data, "cp_payment_amount", 0);
-	ssc_data_set_number(data, "cp_eligible_capacity", 0);
-	ssc_data_set_number(data, "cp_fixed_monthly", 0);
-	ssc_data_set_number(data, "cp_fixed_annual", 0);
-	ssc_number_t p_zero_array[1] = { 0 };
-	ssc_data_set_array(data, "cp_variable_amount", p_zero_array, 1);
-	ssc_data_set_number(data, "cp_fixed_percent_nameplate", 0);
-	ssc_data_set_array(data, "cp_variable_percent_nameplate", p_zero_array, 1);
-	ssc_data_set_number(data, "cp_capacity_nameplate_type", 0);
+	ssc_data_set_number(data, "cp_payment_type", 0);
+	ssc_data_set_number(data, "cp_payment_esc", 0);
+	ssc_number_t p_cp_payment_amount[1] = {0};
+	ssc_data_set_array(data, "cp_payment_amount", p_cp_payment_amount, 1);
 	ssc_data_set_number(data, "cp_system_nameplate", 20.000888824462891);
-	ssc_data_set_number(data, "cp_other_nameplate", 0);
-	ssc_data_set_number(data, "grid_curtailment_price", 0);
+	ssc_data_set_number(data, "cp_battery_nameplate", 1.9995983839035034);
+	ssc_number_t p_cp_nameplate_percentage[1] = { 0 };
+	ssc_data_set_array(data, "cp_nameplate_percentage", p_cp_nameplate_percentage, 1);
+	ssc_number_t p_grid_curtailment_price[1] = { 0 };
+	ssc_data_set_array(data, "grid_curtailment_price", p_grid_curtailment_price, 1);
+	ssc_data_set_number(data, "grid_curtailment_price_esc", 0);
 	ssc_data_set_number(data, "enable_interconnection_limit", 0);
 	ssc_data_set_number(data, "grid_interconnection_limit_kwac", 100000);
 	set_array(data, "grid_curtailment", generictest::curtailment_profile_path_60min, 8760);

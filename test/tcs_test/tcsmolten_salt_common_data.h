@@ -535,7 +535,10 @@ void single_owner_default(ssc_data_t &data)
     ssc_data_set_number(data, "equip_reserve_depr_fed", 0);
     ssc_data_set_number(data, "salvage_percentage", 0);
     ssc_data_set_number(data, "ppa_soln_mode", 0);
-    ssc_data_set_number(data, "ppa_price_input", 0.12999999523162842);
+ //   ssc_data_set_number(data, "ppa_price_input", 0.12999999523162842);
+	ssc_number_t ppa_price_input[1] = { 0.12999999523162842 };
+	ssc_data_set_array(data, "ppa_price_input", ppa_price_input, 1);
+
     ssc_data_set_number(data, "ppa_escalation", 1);
     ssc_data_set_number(data, "construction_financing_cost", 33673276);
     ssc_data_set_number(data, "term_tenor", 18);

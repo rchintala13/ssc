@@ -17,6 +17,7 @@ int d = sprintf(weatherfile, "%s/test/input_cases/pvsamv1_data/USA AZ Tucson (TM
 //int e = sprintf(dispatch_factors_ts, "%s/../sdktool_debug/dispatch_factors_ts.csv", std::getenv("SAMNTDIR"));
 
 // 0. Default Test Arrays and Matrices: using SAM GUI defaults
+const char* ppa_price_input = "0.12999999523162842";
 const char* W_aperture = "6, 6, 6, 6";
 const char* A_aperture = "656, 656, 656, 656";
 const char* TrackingError = "0.98799997568130493, 0.98799997568130493, 0.98799997568130493, 0.98799997568130493";
@@ -872,7 +873,8 @@ TestInfo physTroughPPASingleDefaultInfo[] = {
 	{"equip_reserve_depr_fed",              NUM,                "0"                     },
 	{"salvage_percentage",                  NUM,                "0"                     },
 	{"ppa_soln_mode",                       NUM,                "0"                     },
-	{"ppa_price_input",                     NUM,                "0.12999999523162842"   },
+//	{ "ppa_price_input",                     NUM,                "0.12999999523162842" },
+	{ "ppa_price_input",                    ARR,               ppa_price_input, 1 },
 	{"ppa_escalation",                      NUM,                "1"                     },
 	{"construction_financing_cost",         NUM,                "30299280"              },
 	{"term_tenor",                          NUM,                "18"                    },
