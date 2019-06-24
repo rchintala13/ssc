@@ -1000,11 +1000,6 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 		nameplate_kw += Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings * module_watts_stc * util::watt_to_kilowatt;
 	}
 
-	// Warning workaround
-	static bool is32BitLifetime = (__ARCHBITS__ == 32 && system_use_lifetime_output);
-	if (is32BitLifetime)
-		throw exec_error( "pvsamv1", "Lifetime simulation of PV systems is only available in the 64 bit version of SAM.");
-
 	// lifetime outputs
 	std::vector<ssc_number_t> p_load_full; p_load_full.reserve(nlifetime);
 

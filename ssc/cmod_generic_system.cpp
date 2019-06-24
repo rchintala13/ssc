@@ -107,11 +107,6 @@ public:
 		int spec_mode = as_integer("spec_mode");
 		bool system_use_lifetime_output = (as_integer("system_use_lifetime_output") == 1);
 
-		// Warning workaround
-		static bool is32BitLifetime = (__ARCHBITS__ == 32 &&	system_use_lifetime_output);
-		if (is32BitLifetime)
-		throw exec_error( "generic", "Lifetime simulation of generic systems is only available in the 64 bit version of SAM.");
-
 		// Lifetime setup
 		ssc_number_t *enet = nullptr;
 		size_t nyears = 1;
