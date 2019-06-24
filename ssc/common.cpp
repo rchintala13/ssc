@@ -798,21 +798,21 @@ weatherdata::weatherdata( var_data *data_table )
 			n_irr++;
 		}
 	}
-	if (nrec == 0 || n_irr < 1)
+	if (n_irr < 2)// if there aren't at least two of gh, dn, df...
 	{
-		if (data_table->table.lookup("poa") == nullptr){
+		if (data_table->table.lookup("poa") == nullptr){ //then there has to be poa
 			m_message = "missing irradiance: could not find gh, dn, df, or poa";
 			m_ok = false;
 			return;
 		}
 	}
 
-	// check that all vectors are of same length as irradiance vectors
-	vec year = get_vector( data_table, "year");
-	vec month = get_vector( data_table, "month");
-	vec day = get_vector( data_table, "day");
-	vec hour = get_vector( data_table, "hour");
-	vec minute = get_vector( data_table, "minute");
+	// check that all vectors are of same length
+	vec year = get_vector( data_table, "year", &nrec);
+	vec month = get_vector( data_table, "month", &nrec);
+	vec day = get_vector( data_table, "day", &nrec);
+	vec hour = get_vector( data_table, "hour", &nrec);
+	vec minute = get_vector( data_table, "minute", &nrec);
 	vec gh = get_vector( data_table, "gh", &nrec );
 	vec dn = get_vector( data_table, "dn", &nrec );
 	vec df = get_vector( data_table, "df", &nrec );
@@ -828,7 +828,7 @@ weatherdata::weatherdata( var_data *data_table )
 	vec alb = get_vector( data_table, "alb", &nrec ); 
 	vec aod = get_vector( data_table, "aod", &nrec ); 
 	if (m_ok == false){
-		return;
+		return; //m_message is set in get_vector function, so doesn't need to be set here
 	}
 
 	m_nRecords = nrec;
