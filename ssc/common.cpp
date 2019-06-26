@@ -807,7 +807,7 @@ weatherdata::weatherdata( var_data *data_table )
 		}
 	}
 
-	// check that all vectors are of same length
+	// check that all vectors are of same length (part of get_vector function)
 	vec year = get_vector( data_table, "year", &nrec);
 	vec month = get_vector( data_table, "month", &nrec);
 	vec day = get_vector( data_table, "day", &nrec);
@@ -833,6 +833,7 @@ weatherdata::weatherdata( var_data *data_table )
 
 	m_nRecords = nrec;
 
+	/*
 	// estimate time step
 	size_t nmult = 0;
 	if ( m_nRecords%8760 == 0 )
@@ -855,9 +856,9 @@ weatherdata::weatherdata( var_data *data_table )
 		m_message = "could not determine timestep in weatherdata";
 		m_ok = false;
 		return;
-	}
+	}*/
 
-	if ( nrec > 0 && nmult >= 1 )
+	if ( nrec > 0 )
 	{
 		m_data.resize( nrec );
 		for( size_t i=0;i<nrec;i++ )
@@ -865,28 +866,10 @@ weatherdata::weatherdata( var_data *data_table )
 			weather_record *r = new weather_record;
 
 			if ( i < year.len ) r->year = (int)year.p[i]; 
-			else r->year = 2000;
-
 			if ( i < month.len ) r->month = (int)month.p[i];
-			else if ( m_stepSec == 3600 && m_nRecords == 8760 ) {
-				r->month = util::month_of((double)i);
-			}
-
 			if ( i < day.len ) r->day = (int)day.p[i];
-			else if ( m_stepSec == 3600 && m_nRecords == 8760 ) {
-				int month = util::month_of( (double)i );
-				r->day = util::day_of_month( month, (double)i );
-			}
-
 			if ( i < hour.len ) r->hour = (int)hour.p[i];
-			else if ( m_stepSec == 3600 && m_nRecords == 8760 ) {
-				size_t day = i / 24;
-				size_t start_of_day = day * 24;
-				r->hour = (int)(i - start_of_day);
-			}
-
 			if ( i < minute.len ) r->minute = minute.p[i];
-			else r->minute = (double)((m_stepSec / 2) / 60);
 
 			r->gh = r->dn = r->df = r->poa = r->wspd = r->wdir = r->tdry = r->twet = r->tdew 
 				= r->rhum = r->pres = r->snow = r->alb = r->aod = std::numeric_limits<double>::quiet_NaN();
