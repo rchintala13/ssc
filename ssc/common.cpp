@@ -50,6 +50,7 @@
 #include <string>
 #include "common.h"
 #include "lib_weatherfile.h"
+#include "lib_util.h"
 
 var_info vtab_standard_financial[] = {
 
@@ -754,6 +755,38 @@ double shading_factor_calculator::dc_shade_factor()
 	return (m_dc_shade_factor);
 }
 
+//this function checks the weather data to make sure that it is a single, continuous year with an even timestep starting jan 1 and ending dec 31
+//HOWEVER, the year value may vary (i.e., TMY) so only checking month, day, hour, minute timesteps, not actual year vector
+bool weatherdata::check_continuous_single_year(bool leapyear)
+{
+	int ts_per_hour = 0; //determine the number of timesteps in each hour
+	if (leapyear)
+		ts_per_hour = (int)(m_nRecords % 8784);
+	else
+		ts_per_hour = (int)(m_nRecords % 8760);
+	double ts_min = 60 / ts_per_hour; //determine the number of minutes of each timestep
+	int idx = 0; //index to keep track of where we are in the timestamp vectors
+	//now, check that the month, hour, day, and minute vectors are consistent with a single, continuous year with an even timestep that starts on jan 1 and ends dec 31
+	for (int m = 1; m <= 12; m++) 
+	{
+		int daymax = util::days_in_month(m - 1);
+		if (m == 2 && leapyear) daymax = 29; //make sure to account for leap day in Feb
+		for (int d = 1; d < daymax; d++)
+		{
+			for (int h = 0; h < 23; h++)
+			{
+				for (double min = 0; min < 60; min += ts_min)
+				{
+					//if any of the month, day, hour, or minute don't line up with what we've calculated, then it doesn't fit our criteria for a continuous year
+					if (this->m_data[idx]->month != m || this->m_data[idx]->day != d || this->m_data[idx]->hour != h || this->m_data[idx]->minute != min) return false;
+					else idx++;
+				}
+			}
+		}
+	}
+	return true;
+}
+
 weatherdata::weatherdata( var_data *data_table )
 {
 	m_startSec = m_stepSec = m_nRecords = 0;
@@ -833,35 +866,10 @@ weatherdata::weatherdata( var_data *data_table )
 
 	m_nRecords = nrec;
 
-	/*
-	// estimate time step
-	size_t nmult = 0;
-	if ( m_nRecords%8760 == 0 )
-	{
-		nmult = nrec / 8760;
-		m_stepSec = 3600 / nmult;
-		m_startSec = m_stepSec / 2;
-	}
-	else if ( m_nRecords%8784==0 )
-	{ 
-		// Check if the weather file contains a leap day
-		// if so, correct the number of nrecords 
-		m_nRecords = m_nRecords/8784*8760;
-		nmult = m_nRecords/8760;
-		m_stepSec = 3600 / nmult;
-		m_startSec = m_stepSec / 2;
-	}
-	else
-	{
-		m_message = "could not determine timestep in weatherdata";
-		m_ok = false;
-		return;
-	}*/
-
 	if ( nrec > 0 )
 	{
 		m_data.resize( nrec );
-		for( size_t i=0;i<nrec;i++ )
+		for( size_t i=0; i<nrec; i++ )
 		{
 			weather_record *r = new weather_record;
 
@@ -906,6 +914,32 @@ weatherdata::weatherdata( var_data *data_table )
 
 			m_data[i] = r;
 		}
+	}
+
+	// estimate time step and check for continuous year
+	size_t nmult = 0;
+	bool is_leap_year = false;
+	// Check if the weather file contains a leap day
+	// if so, correct the number of nrecords
+	if (m_nRecords % 8784 == 0)
+	{
+		m_nRecords = m_nRecords / 8784 * 8760;
+		is_leap_year = true;
+	}
+	if (m_nRecords % 8760 == 0)
+	{
+		if (check_continuous_single_year(is_leap_year))
+		{
+			nmult = nrec / 8760;
+			m_stepSec = 3600 / nmult;
+			m_startSec = m_stepSec / 2;
+		}
+		else
+			m_continuousYear = false;
+	}
+	else
+	{
+		m_continuousYear = false;
 	}
 }
 

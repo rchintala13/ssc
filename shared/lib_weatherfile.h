@@ -173,6 +173,7 @@ protected:
 	size_t m_nRecords;
 	size_t m_index;
 	bool m_hasLeapYear = false;
+	bool m_continuousYear = true; //boolean to identify if the provided weather data is a complete, continuous, single year with an even timestep- OR- if it's subannual or single timestep
 	
 	weather_header m_hdr;
 	bool m_hdrInitialized;
@@ -190,7 +191,7 @@ public:
 	bool ok(){ return m_ok; }
 	size_t start_sec(){ return m_startSec; } // start time in seconds, 0 = jan 1st midnight
 	size_t step_sec(){ return m_stepSec; } // step time in seconds
-	size_t nrecords(){ return m_nRecords; } // number of data records in file	
+	size_t nrecords(){ return m_nRecords; } // number of data records in file
 	int get_counter_value(){ return (int)m_index; }
 	void rewind(){ m_index = 0; }
 

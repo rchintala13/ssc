@@ -164,6 +164,7 @@ public:
 	bool read(weather_record *r); // reads one more record	
 	bool read_average(weather_record *r, std::vector<int> &cols, size_t &num_timesteps); // reads one more record	
 	bool has_data_column(size_t id);
+	bool check_continuous_single_year(bool leapyear);
 };
 
 bool ssc_cmod_update(std::string &log_msg, std::string &progress_msg, void *data, double progress, int out_type);
