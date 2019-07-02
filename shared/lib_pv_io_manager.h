@@ -225,7 +225,7 @@ struct Simulation_IO
 	size_t numberOfWeatherFileRecords;
 	size_t numberOfSteps;
 	size_t stepsPerHour;
-	double dtHour;
+	double dtHour; //fraction of an hour in a given timestep, e.g. for 15-minute data, ts_hour would be 0.25
 	flag useLifetimeOutput;
 };
 

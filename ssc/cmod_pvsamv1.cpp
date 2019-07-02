@@ -958,7 +958,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	size_t nrec = Simulation->numberOfWeatherFileRecords;
 	size_t nlifetime = Simulation->numberOfSteps;
 	size_t nyears = Simulation->numberOfYears;
-	double ts_hour = Simulation->dtHour;
+	double ts_hour = Simulation->dtHour; //fraction of an hour in a given timestep, e.g. for 15-minute data, ts_hour would be 0.25
 	size_t step_per_hour = Simulation->stepsPerHour;
 	bool system_use_lifetime_output = Simulation->useLifetimeOutput;
 
@@ -1062,7 +1062,6 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	size_t irepfreq = insteps/nreports;
 
 	size_t idx = 0;
-	size_t hour = 0;
 
 	// variables used to calculate loss diagram
 	double annual_energy = 0, annual_ac_gross = 0, annual_ac_pre_avail = 0, dc_gross[4] = { 0, 0, 0, 0 }, annualMpptVoltageClipping = 0, annual_dc_adjust_loss = 0, annual_dc_lifetime_loss = 0, annual_ac_lifetime_loss = 0, annual_ac_battery_loss = 0, annual_xfmr_nll = 0, annual_xfmr_ll = 0, annual_xfmr_loss = 0;
@@ -1087,10 +1086,19 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 		std::vector<double> tmp;
 		dcStringVoltage.push_back(tmp);
 	}
-	for (size_t iyear = 0; iyear < nyears; iyear++)
+
+	//for normal annual simulations, this works as expected. for non-annual weather data inputs, nyears is 1, so iyear will always be 0, so timeseries outputs will be output for the entire nrec length.
+	for (size_t iyear = 0; iyear < nyears; iyear++) 
 	{
-		for (hour = 0; hour < 8760; hour++)
+		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
 		{
+
+			if (!wdprov->read(&Irradiance->weatherRecord))
+				throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
+
+			weather_record wf = Irradiance->weatherRecord;
+			size_t hour = wf.hour;
+
 			// report progress updates to the caller	
 			ireport++;
 			if (ireport - ireplast > irepfreq)
@@ -1101,811 +1109,803 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				ireplast = ireport;
 			}
 
+			// Reset dcPower calculation for new timestep
+			dcPowerNetTotalSystem = 0;
+
 			// only hourly electric load, even
 			// if PV simulation is subhourly.  load is assumed constant over the hour.
 			// if no load profile supplied, load = 0
 			if (nload == 8760)
 				cur_load = p_load_in[hour];
 
-			for (size_t jj = 0; jj < step_per_hour; jj++)
+			// electric load is subhourly
+			// if no load profile supplied, load = 0
+			if (nload == nrec)
+				cur_load = p_load_in[nrec_idx];
+
+			// log cur_load to check both hourly and sub hourly load data
+			// load data over entrie lifetime period not currently supported.
+			//					log(util::format("year=%d, hour=%d, step per hour=%d, load=%g",
+			//						iyear, hour, jj, cur_load), SSC_WARNING, (float)idx);
+			p_load_full.push_back((ssc_number_t)cur_load);
+
+			//update POA data structure indicies if radmode is POA model is enabled
+			if (radmode == irrad::POA_R || radmode == irrad::POA_P){
+				for (size_t nn = 0; nn < num_subarrays; nn++){
+					if (!Subarrays[nn]->enable) continue;
+
+					Subarrays[nn]->poa.poaAll->tDew = wf.tdew;
+					Subarrays[nn]->poa.poaAll->i = idx;
+					if (nrec_idx == 0) {
+						Subarrays[nn]->poa.poaAll->dayStart = idx;
+						Subarrays[nn]->poa.poaAll->doy += 1;
+					}
+
+				}
+			}
+				
+			double solazi = 0, solzen = 0, solalt = 0;
+			int sunup = 0;
+
+			// accumulators for radiation power (W) over this 
+			// timestep from each subarray
+			double ts_accum_poa_front_nom = 0.0;
+			double ts_accum_poa_front_beam_nom = 0.0;
+			double ts_accum_poa_front_shaded = 0.0;
+			double ts_accum_poa_front_shaded_soiled = 0.0;
+			double ts_accum_poa_front_total = 0.0;
+			double ts_accum_poa_rear = 0.0;
+			double ts_accum_poa_rear_after_losses = 0.0;
+			double ts_accum_poa_total_eff = 0.0;
+			double ts_accum_poa_front_beam_eff = 0.0;
+
+			// calculate incident irradiance on each subarray
+			std::vector<double> ipoa_rear, ipoa_rear_after_losses, ipoa_front, ipoa;
+			double alb;
+			alb = 0;
+
+			for (size_t nn = 0; nn < num_subarrays; nn++)
 			{
-				// Reset dcPower calculation for new timestep
-				dcPowerNetTotalSystem = 0; 
+				ipoa_rear.push_back(0);
+				ipoa_rear_after_losses.push_back(0);
+				ipoa_front.push_back(0);
+				ipoa.push_back(0);
 
-				// electric load is subhourly
-				// if no load profile supplied, load = 0
-				if (nload == nrec)
-					cur_load = p_load_in[hour*step_per_hour + jj];
+				if (!Subarrays[nn]->enable
+					|| Subarrays[nn]->nStrings < 1)
+					continue; // skip disabled subarrays
 
-				// log cur_load to check both hourly and sub hourly load data
-				// load data over entrie lifetime period not currently supported.
-				//					log(util::format("year=%d, hour=%d, step per hour=%d, load=%g",
-				//						iyear, hour, jj, cur_load), SSC_WARNING, (float)idx);
-				p_load_full.push_back((ssc_number_t)cur_load);
+				irrad irr(Irradiance->weatherRecord, Irradiance->weatherHeader,
+					Irradiance->skyModel, Irradiance->radiationMode, Subarrays[nn]->trackMode,
+					Irradiance->useWeatherFileAlbedo, Irradiance->instantaneous, Subarrays[nn]->backtrackingEnabled,
+					Irradiance->dtHour, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->trackerRotationLimitDegrees, Subarrays[nn]->groundCoverageRatio,
+					Subarrays[nn]->monthlyTiltDegrees, Irradiance->userSpecifiedMonthlyAlbedo,
+					Subarrays[nn]->poa.poaAll.get());
+											
+				int code = irr.calc();
 
-				if (!wdprov->read(&Irradiance->weatherRecord))
-					throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
+				if (code < 0) //jmf updated 11/30/18 so that negative numbers are errors, positive numbers are warnings, 0 is everything correct. implemented in patch for POA model only, will be added to develop for other irrad models as well
+					throw exec_error("pvsamv1",
+					util::format("failed to calculate irradiance incident on surface (POA) %d (code: %d) [y:%d m:%d d:%d h:%d]",
+					nn + 1, code, wf.year, wf.month, wf.day, wf.hour));
 
-				weather_record wf = Irradiance->weatherRecord;
-
-				//update POA data structure indicies if radmode is POA model is enabled
-				if (radmode == irrad::POA_R || radmode == irrad::POA_P){
-					for (size_t nn = 0; nn < num_subarrays; nn++){
-						if (!Subarrays[nn]->enable) continue;
-
-						Subarrays[nn]->poa.poaAll->tDew = wf.tdew;
-						Subarrays[nn]->poa.poaAll->i = idx;
-						if (jj == 0 && wf.hour == 0) {
-							Subarrays[nn]->poa.poaAll->dayStart = idx;
-							Subarrays[nn]->poa.poaAll->doy += 1;
-						}
-
+				if (code == 40)
+					log(util::format("SAM calculated negative direct normal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
+						wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+				else if (code == 41)
+					log(util::format("SAM calculated negative diffuse horizontal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
+						wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+				else if (code == 42)
+					log(util::format("SAM calculated negative global horizontal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
+						wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+									   					 
+				// p_irrad_calc is only weather file records long...
+				if (iyear == 0)
+				{
+					if (radmode == irrad::POA_R || radmode == irrad::POA_P) {
+						double gh_temp, df_temp, dn_temp;
+						gh_temp = df_temp = dn_temp = 0;
+						irr.get_irrad(&gh_temp, &dn_temp, &df_temp);
+						Irradiance->p_IrradianceCalculated[1][idx] = (ssc_number_t)df_temp;
+						Irradiance->p_IrradianceCalculated[2][idx] = (ssc_number_t)dn_temp;
 					}
 				}
-				
-				double solazi = 0, solzen = 0, solalt = 0;
-				int sunup = 0;
+				// beam, skydiff, and grounddiff IN THE PLANE OF ARRAY (W/m2)
+				double ibeam, iskydiff, ignddiff;
+				double aoi, stilt, sazi, rot, btd;
 
-				// accumulators for radiation power (W) over this 
-				// timestep from each subarray
-				double ts_accum_poa_front_nom = 0.0;
-				double ts_accum_poa_front_beam_nom = 0.0;
-				double ts_accum_poa_front_shaded = 0.0;
-				double ts_accum_poa_front_shaded_soiled = 0.0;
-				double ts_accum_poa_front_total = 0.0;
-				double ts_accum_poa_rear = 0.0;
-				double ts_accum_poa_rear_after_losses = 0.0;
-				double ts_accum_poa_total_eff = 0.0;
-				double ts_accum_poa_front_beam_eff = 0.0;
+				// Ensure that the usePOAFromWF flag is false unless a reference cell has been used. 
+				//  This will later get forced to false if any shading has been applied (in any scenario)
+				//  also this will also be forced to false if using the cec mcsp thermal model OR if using the spe module model with a diffuse util. factor < 1.0
+				Subarrays[nn]->poa.usePOAFromWF = false;
+				if (radmode == irrad::POA_R){
+					ipoa[nn] = wf.poa;
+					Subarrays[nn]->poa.usePOAFromWF = true;
+				}
+				else if (radmode == irrad::POA_P){
+					ipoa[nn] = wf.poa;
+				}
 
-				// calculate incident irradiance on each subarray
-				std::vector<double> ipoa_rear, ipoa_rear_after_losses, ipoa_front, ipoa;
-				double alb;
-				alb = 0;
-
-				for (size_t nn = 0; nn < num_subarrays; nn++)
-				{
-					ipoa_rear.push_back(0);
-					ipoa_rear_after_losses.push_back(0);
-					ipoa_front.push_back(0);
-					ipoa.push_back(0);
-
-					if (!Subarrays[nn]->enable
-						|| Subarrays[nn]->nStrings < 1)
-						continue; // skip disabled subarrays
-
-					irrad irr(Irradiance->weatherRecord, Irradiance->weatherHeader,
-						Irradiance->skyModel, Irradiance->radiationMode, Subarrays[nn]->trackMode,
-						Irradiance->useWeatherFileAlbedo, Irradiance->instantaneous, Subarrays[nn]->backtrackingEnabled,
-						Irradiance->dtHour, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->trackerRotationLimitDegrees, Subarrays[nn]->groundCoverageRatio,
-						Subarrays[nn]->monthlyTiltDegrees, Irradiance->userSpecifiedMonthlyAlbedo,
-						Subarrays[nn]->poa.poaAll.get());
-											
-					int code = irr.calc();
-
-					if (code < 0) //jmf updated 11/30/18 so that negative numbers are errors, positive numbers are warnings, 0 is everything correct. implemented in patch for POA model only, will be added to develop for other irrad models as well
-						throw exec_error("pvsamv1",
-						util::format("failed to calculate irradiance incident on surface (POA) %d (code: %d) [y:%d m:%d d:%d h:%d]",
-						nn + 1, code, wf.year, wf.month, wf.day, wf.hour));
-
-					if (code == 40)
-						log(util::format("SAM calculated negative direct normal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
-							wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-					else if (code == 41)
-						log(util::format("SAM calculated negative diffuse horizontal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
-							wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-					else if (code == 42)
-						log(util::format("SAM calculated negative global horizontal irradiance in the POA decomposition algorithm at time [y:%d m:%d d:%d h:%d], set to zero.",
-							wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-									   					 
-					// p_irrad_calc is only weather file records long...
-					if (iyear == 0)
-					{
-						if (radmode == irrad::POA_R || radmode == irrad::POA_P) {
-							double gh_temp, df_temp, dn_temp;
-							gh_temp = df_temp = dn_temp = 0;
-							irr.get_irrad(&gh_temp, &dn_temp, &df_temp);
-							Irradiance->p_IrradianceCalculated[1][idx] = (ssc_number_t)df_temp;
-							Irradiance->p_IrradianceCalculated[2][idx] = (ssc_number_t)dn_temp;
-						}
-					}
-					// beam, skydiff, and grounddiff IN THE PLANE OF ARRAY (W/m2)
-					double ibeam, iskydiff, ignddiff;
-					double aoi, stilt, sazi, rot, btd;
-
-					// Ensure that the usePOAFromWF flag is false unless a reference cell has been used. 
-					//  This will later get forced to false if any shading has been applied (in any scenario)
-					//  also this will also be forced to false if using the cec mcsp thermal model OR if using the spe module model with a diffuse util. factor < 1.0
+				if (Subarrays[nn]->Module->simpleEfficiencyForceNoPOA && (radmode == irrad::POA_R || radmode == irrad::POA_P)){  // only will be true if using a poa model AND spe module model AND spe_fp is < 1
 					Subarrays[nn]->poa.usePOAFromWF = false;
-					if (radmode == irrad::POA_R){
-						ipoa[nn] = wf.poa;
-						Subarrays[nn]->poa.usePOAFromWF = true;
-					}
-					else if (radmode == irrad::POA_P){
-						ipoa[nn] = wf.poa;
-					}
+					if (idx == 0)
+						log("The combination of POA irradiance as in input, single point efficiency module model, and module diffuse utilization factor less than one means that SAM must use a POA decomposition model to calculate the incident diffuse irradiance", SSC_WARNING);
+				}
 
-					if (Subarrays[nn]->Module->simpleEfficiencyForceNoPOA && (radmode == irrad::POA_R || radmode == irrad::POA_P)){  // only will be true if using a poa model AND spe module model AND spe_fp is < 1
-						Subarrays[nn]->poa.usePOAFromWF = false;
-						if (idx == 0)
-							log("The combination of POA irradiance as in input, single point efficiency module model, and module diffuse utilization factor less than one means that SAM must use a POA decomposition model to calculate the incident diffuse irradiance", SSC_WARNING);
-					}
-
-					if (Subarrays[nn]->Module->mountingSpecificCellTemperatureForceNoPOA && (radmode == irrad::POA_R || radmode == irrad::POA_P)){
-						Subarrays[nn]->poa.usePOAFromWF = false;
-						if (idx == 0)
-							log("The combination of POA irradiance as input and heat transfer method for cell temperature means that SAM must use a POA decomposition model to calculate the beam irradiance required by the cell temperature model", SSC_WARNING);
-					}
+				if (Subarrays[nn]->Module->mountingSpecificCellTemperatureForceNoPOA && (radmode == irrad::POA_R || radmode == irrad::POA_P)){
+					Subarrays[nn]->poa.usePOAFromWF = false;
+					if (idx == 0)
+						log("The combination of POA irradiance as input and heat transfer method for cell temperature means that SAM must use a POA decomposition model to calculate the beam irradiance required by the cell temperature model", SSC_WARNING);
+				}
 
 
-					// Get Incident angles and irradiances
-					irr.get_sun(&solazi, &solzen, &solalt, 0, 0, 0, &sunup, 0, 0, 0);
-					irr.get_angles(&aoi, &stilt, &sazi, &rot, &btd);
-					irr.get_poa(&ibeam, &iskydiff, &ignddiff, 0, 0, 0);
-					alb = irr.getAlbedo();
+				// Get Incident angles and irradiances
+				irr.get_sun(&solazi, &solzen, &solalt, 0, 0, 0, &sunup, 0, 0, 0);
+				irr.get_angles(&aoi, &stilt, &sazi, &rot, &btd);
+				irr.get_poa(&ibeam, &iskydiff, &ignddiff, 0, 0, 0);
+				alb = irr.getAlbedo();
 
-					if (iyear == 0)
-						Irradiance->p_sunPositionTime[idx] = (ssc_number_t)irr.get_sunpos_calc_hour();
+				if (iyear == 0)
+					Irradiance->p_sunPositionTime[idx] = (ssc_number_t)irr.get_sunpos_calc_hour();
 
-					// save weather file beam, diffuse, and global for output and for use later in pvsamv1- year 1 only
-					/*jmf 2016: these calculations are currently redundant with calculations in irrad.calc() because ibeam and idiff in that function are DNI and DHI, **NOT** in the plane of array
-					we'll have to fix this redundancy in the pvsamv1 rewrite. it will require allowing irradproc to report the errors below
-					and deciding what to do if the weather file DOES contain the third component but it's not being used in the calculations.*/
-					if (iyear == 0)
+				// save weather file beam, diffuse, and global for output and for use later in pvsamv1- year 1 only
+				/*jmf 2016: these calculations are currently redundant with calculations in irrad.calc() because ibeam and idiff in that function are DNI and DHI, **NOT** in the plane of array
+				we'll have to fix this redundancy in the pvsamv1 rewrite. it will require allowing irradproc to report the errors below
+				and deciding what to do if the weather file DOES contain the third component but it's not being used in the calculations.*/
+				if (iyear == 0)
+				{
+					// Apply all irradiance component data from weather file (if it exists)
+					Irradiance->p_weatherFilePOA[0][idx] = (ssc_number_t)wf.poa;
+					Irradiance->p_weatherFileDNI[idx] = (ssc_number_t)wf.dn;
+					Irradiance->p_weatherFileGHI[idx] = (ssc_number_t)(wf.gh);
+					Irradiance->p_weatherFileDHI[idx] = (ssc_number_t)(wf.df);
+
+					// calculate beam if global & diffuse are selected as inputs
+					if (radmode == irrad::GH_DF)
 					{
-						// Apply all irradiance component data from weather file (if it exists)
-						Irradiance->p_weatherFilePOA[0][idx] = (ssc_number_t)wf.poa;
-						Irradiance->p_weatherFileDNI[idx] = (ssc_number_t)wf.dn;
-						Irradiance->p_weatherFileGHI[idx] = (ssc_number_t)(wf.gh);
-						Irradiance->p_weatherFileDHI[idx] = (ssc_number_t)(wf.df);
-
-						// calculate beam if global & diffuse are selected as inputs
-						if (radmode == irrad::GH_DF)
+						Irradiance->p_IrradianceCalculated[2][idx] = (ssc_number_t)((wf.gh - wf.df) / cos(solzen*3.1415926 / 180));
+						if (Irradiance->p_IrradianceCalculated[2][idx] < -1)
 						{
-							Irradiance->p_IrradianceCalculated[2][idx] = (ssc_number_t)((wf.gh - wf.df) / cos(solzen*3.1415926 / 180));
-							if (Irradiance->p_IrradianceCalculated[2][idx] < -1)
-							{
-								log(util::format("SAM calculated negative direct normal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
-									Irradiance->p_IrradianceCalculated[2][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-								Irradiance->p_IrradianceCalculated[2][idx] = 0;
-							}
-						}
-
-						// calculate global if beam & diffuse are selected as inputs
-						if (radmode == irrad::DN_DF)
-						{
-							Irradiance->p_IrradianceCalculated[0][idx] = (ssc_number_t)(wf.df + wf.dn * cos(solzen*3.1415926 / 180));
-							if (Irradiance->p_IrradianceCalculated[0][idx] < -1)
-							{
-								log(util::format("SAM calculated negative global horizontal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
-									Irradiance->p_IrradianceCalculated[0][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-								Irradiance->p_IrradianceCalculated[0][idx] = 0;
-							}
-						}
-
-						// calculate diffuse if total & beam are selected as inputs
-						if (radmode == irrad::DN_GH)
-						{
-							Irradiance->p_IrradianceCalculated[1][idx] = (ssc_number_t)(wf.gh - wf.dn * cos(solzen*3.1415926 / 180));
-							if (Irradiance->p_IrradianceCalculated[1][idx] < -1)
-							{
-								log(util::format("SAM calculated negative diffuse horizontal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
-									Irradiance->p_IrradianceCalculated[1][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-								Irradiance->p_IrradianceCalculated[1][idx] = 0;
-							}
+							log(util::format("SAM calculated negative direct normal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
+								Irradiance->p_IrradianceCalculated[2][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+							Irradiance->p_IrradianceCalculated[2][idx] = 0;
 						}
 					}
 
-					// record sub-array plane of array output before computing shading and soiling
-					if (iyear == 0)
+					// calculate global if beam & diffuse are selected as inputs
+					if (radmode == irrad::DN_DF)
 					{
-						if (radmode != irrad::POA_R)
-							PVSystem->p_poaNominalFront[nn][idx] = (ssc_number_t)((ibeam + iskydiff + ignddiff));
-						else
-							PVSystem->p_poaNominalFront[nn][idx] = (ssc_number_t)((ipoa[nn]));
+						Irradiance->p_IrradianceCalculated[0][idx] = (ssc_number_t)(wf.df + wf.dn * cos(solzen*3.1415926 / 180));
+						if (Irradiance->p_IrradianceCalculated[0][idx] < -1)
+						{
+							log(util::format("SAM calculated negative global horizontal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
+								Irradiance->p_IrradianceCalculated[0][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+							Irradiance->p_IrradianceCalculated[0][idx] = 0;
+						}
 					}
 
+					// calculate diffuse if total & beam are selected as inputs
+					if (radmode == irrad::DN_GH)
+					{
+						Irradiance->p_IrradianceCalculated[1][idx] = (ssc_number_t)(wf.gh - wf.dn * cos(solzen*3.1415926 / 180));
+						if (Irradiance->p_IrradianceCalculated[1][idx] < -1)
+						{
+							log(util::format("SAM calculated negative diffuse horizontal irradiance %lg W/m2 at time [y:%d m:%d d:%d h:%d], set to zero.",
+								Irradiance->p_IrradianceCalculated[1][idx], wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
+							Irradiance->p_IrradianceCalculated[1][idx] = 0;
+						}
+					}
+				}
 
-					// record sub-array contribution to total POA power for this time step  (W)
+				// record sub-array plane of array output before computing shading and soiling
+				if (iyear == 0)
+				{
 					if (radmode != irrad::POA_R)
-						ts_accum_poa_front_nom += (ibeam + iskydiff + ignddiff) * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+						PVSystem->p_poaNominalFront[nn][idx] = (ssc_number_t)((ibeam + iskydiff + ignddiff));
 					else
-						ts_accum_poa_front_nom += (ipoa[nn])* ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+						PVSystem->p_poaNominalFront[nn][idx] = (ssc_number_t)((ipoa[nn]));
+				}
 
-					// record sub-array contribution to total POA beam power for this time step (W)
-					ts_accum_poa_front_beam_nom += ibeam * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
 
-					// for non-linear shading from shading database
-					if (Subarrays[nn]->shadeCalculator.use_shade_db())
+				// record sub-array contribution to total POA power for this time step  (W)
+				if (radmode != irrad::POA_R)
+					ts_accum_poa_front_nom += (ibeam + iskydiff + ignddiff) * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+				else
+					ts_accum_poa_front_nom += (ipoa[nn])* ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+
+				// record sub-array contribution to total POA beam power for this time step (W)
+				ts_accum_poa_front_beam_nom += ibeam * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+
+				// for non-linear shading from shading database
+				if (Subarrays[nn]->shadeCalculator.use_shade_db())
+				{
+					double shadedb_gpoa = ibeam + iskydiff + ignddiff;
+					double shadedb_dpoa = iskydiff + ignddiff;
+
+					// update cell temperature - unshaded value per Sara 1/25/16
+					double tcell = wf.tdry;
+					if (sunup > 0)
 					{
-						double shadedb_gpoa = ibeam + iskydiff + ignddiff;
-						double shadedb_dpoa = iskydiff + ignddiff;
-
-						// update cell temperature - unshaded value per Sara 1/25/16
-						double tcell = wf.tdry;
-						if (sunup > 0)
-						{
-							// calculate cell temperature using selected temperature model
-							pvinput_t in(ibeam, iskydiff, ignddiff, 0, ipoa[nn],
-								wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
-								solzen, aoi, hdr.elev,
-								stilt, sazi,
-								((double)wf.hour) + wf.minute / 60.0,
-								radmode, Subarrays[nn]->poa.usePOAFromWF);
-							// voltage set to -1 for max power
-							(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, -1.0, tcell);
-						}
-						double shadedb_str_vmp_stc = Subarrays[nn]->nModulesPerString * Subarrays[nn]->Module->voltageMaxPower;
-						double shadedb_mppt_lo = PVSystem->Inverter->mpptLowVoltage;
-						double shadedb_mppt_hi = PVSystem->Inverter->mpptHiVoltage;
+						// calculate cell temperature using selected temperature model
+						pvinput_t in(ibeam, iskydiff, ignddiff, 0, ipoa[nn],
+							wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
+							solzen, aoi, hdr.elev,
+							stilt, sazi,
+							((double)wf.hour) + wf.minute / 60.0,
+							radmode, Subarrays[nn]->poa.usePOAFromWF);
+						// voltage set to -1 for max power
+						(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, -1.0, tcell);
+					}
+					double shadedb_str_vmp_stc = Subarrays[nn]->nModulesPerString * Subarrays[nn]->Module->voltageMaxPower;
+					double shadedb_mppt_lo = PVSystem->Inverter->mpptLowVoltage;
+					double shadedb_mppt_hi = PVSystem->Inverter->mpptHiVoltage;
 						 
-						// shading database if necessary
-						if (!Subarrays[nn]->shadeCalculator.fbeam_shade_db(shadeDatabase, hour, solalt, solazi, jj, step_per_hour, shadedb_gpoa, shadedb_dpoa, tcell, Subarrays[nn]->nModulesPerString, shadedb_str_vmp_stc, shadedb_mppt_lo, shadedb_mppt_hi))
-						{
-							throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
+					// shading database if necessary
+					if (!Subarrays[nn]->shadeCalculator.fbeam_shade_db(shadeDatabase, hour, solalt, solazi, jj, step_per_hour, shadedb_gpoa, shadedb_dpoa, tcell, Subarrays[nn]->nModulesPerString, shadedb_str_vmp_stc, shadedb_mppt_lo, shadedb_mppt_hi))
+					{
+						throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
+					}
+					if (iyear == 0)
+					{
+#ifdef SHADE_DB_OUTPUTS
+						p_shadedb_gpoa[nn][idx] = (ssc_number_t)shadedb_gpoa;
+						p_shadedb_dpoa[nn][idx] = (ssc_number_t)shadedb_dpoa;
+						p_shadedb_pv_cell_temp[nn][idx] = (ssc_number_t)tcell;
+						p_shadedb_mods_per_str[nn][idx] = (ssc_number_t)Subarrays[nn]->nModulesPerString;
+						p_shadedb_str_vmp_stc[nn][idx] = (ssc_number_t)shadedb_str_vmp_stc;
+						p_shadedb_mppt_lo[nn][idx] = (ssc_number_t)shadedb_mppt_lo;
+						p_shadedb_mppt_hi[nn][idx] = (ssc_number_t)shadedb_mppt_hi;
+						log("shade db hour " + util::to_string((int)hour) +"\n" + shadeCalculator->get_warning());
+#endif
+						// fraction shaded for comparison
+						PVSystem->p_shadeDBShadeFraction[nn][idx] = (ssc_number_t)(Subarrays[nn]->shadeCalculator.dc_shade_factor());
+					} 
+				}
+				else
+				{
+					if (!Subarrays[nn]->shadeCalculator.fbeam(hour, solalt, solazi, jj, step_per_hour))
+					{
+						throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
+					}
+				}
+
+				// apply hourly shading factors to beam (if none enabled, factors are 1.0) 
+				// shj 3/21/16 - update to handle negative shading loss
+				if (Subarrays[nn]->shadeCalculator.beam_shade_factor() != 1.0){
+					//							if (sa[nn].shad.beam_shade_factor() < 1.0){
+					// Sara 1/25/16 - shading database derate applied to dc only
+					// shading loss applied to beam if not from shading database
+					ibeam *= Subarrays[nn]->shadeCalculator.beam_shade_factor();
+					if (radmode == irrad::POA_R || radmode == irrad::POA_P){
+						Subarrays[nn]->poa.usePOAFromWF = false;
+						if (Subarrays[nn]->poa.poaShadWarningCount == 0){
+							log(util::format("Combining POA irradiance as input with the beam shading losses at time [y:%d m:%d d:%d h:%d] forces SAM to use a POA decomposition model to calculate incident beam irradiance",
+								wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
 						}
+						else{
+							log(util::format("Combining POA irradiance as input with the beam shading losses at time [y:%d m:%d d:%d h:%d] forces SAM to use a POA decomposition model to calculate incident beam irradiance",
+								wf.year, wf.month, wf.day, wf.hour), SSC_NOTICE, (float)idx);
+						}
+						Subarrays[nn]->poa.poaShadWarningCount++;
+					}
+				}
+
+				// apply sky diffuse shading factor (specified as constant, nominally 1.0 if disabled in UI)
+				if (Subarrays[nn]->shadeCalculator.fdiff() < 1.0){
+					iskydiff *= Subarrays[nn]->shadeCalculator.fdiff();
+					if (radmode == irrad::POA_R || radmode == irrad::POA_P){
+						if (idx == 0)
+							log("Combining POA irradiance as input with the diffuse shading losses forces SAM to use a POA decomposition model to calculate incident diffuse irradiance", SSC_WARNING);
+						Subarrays[nn]->poa.usePOAFromWF = false;
+					}
+				}
+
+				double beam_shading_factor = Subarrays[nn]->shadeCalculator.beam_shade_factor();
+
+				//self-shading calculations
+				if (((Subarrays[nn]->trackMode == 0 || Subarrays[nn]->trackMode == 4) && (Subarrays[nn]->shadeMode == 1 || Subarrays[nn]->shadeMode == 2)) //fixed tilt or timeseries tilt, self-shading (linear or non-linear) OR
+					|| (Subarrays[nn]->trackMode == 1 && (Subarrays[nn]->shadeMode == 1 || Subarrays[nn]->shadeMode == 2) && Subarrays[nn]->backtrackingEnabled == 0)) //one-axis tracking, self-shading, not backtracking
+				{
+
+					if (radmode == irrad::POA_R || radmode == irrad::POA_P){
+						if (idx == 0)
+							log("Combining POA irradiance as input with self shading forces SAM to employ a POA decomposition model to calculate incident beam irradiance", SSC_WARNING);
+						Subarrays[nn]->poa.usePOAFromWF = false;
+					}
+
+					// info to be passed to self-shading function
+					bool trackbool = (Subarrays[nn]->trackMode == 1);	// 0 for fixed tilt and timeseries tilt, 1 for one-axis
+					bool linear = (Subarrays[nn]->shadeMode == 2); //0 for full self-shading, 1 for linear self-shading
+
+					//geometric fraction of the array that is shaded for one-axis trackers.
+					//USES A DIFFERENT FUNCTION THAN THE SELF-SHADING BECAUSE SS IS MEANT FOR FIXED ONLY. shadeFraction1x IS FOR ONE-AXIS TRACKERS ONLY.
+					//used in the non-linear self-shading calculator for one-axis tracking only
+					double shad1xf = 0;
+					if (trackbool)
+						shad1xf = shadeFraction1x(solazi, solzen, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->groundCoverageRatio, rot);
+
+					//execute self-shading calculations
+					ssc_number_t beam_to_use; //some self-shading calculations require DNI, NOT ibeam (beam in POA). Need to know whether to use DNI from wf or calculated, depending on radmode
+					if (radmode == irrad::DN_DF || radmode == irrad::DN_GH) beam_to_use = (ssc_number_t)wf.dn;
+					else beam_to_use = Irradiance->p_IrradianceCalculated[2][hour * step_per_hour]; // top of hour in first year
+
+					if (linear && trackbool) //one-axis linear
+					{
+						ibeam *= (1 - shad1xf); //derate beam irradiance linearly by the geometric shading fraction calculated above per Chris Deline 2/10/16
+						beam_shading_factor *= (1 - shad1xf);
 						if (iyear == 0)
 						{
-#ifdef SHADE_DB_OUTPUTS
-							p_shadedb_gpoa[nn][idx] = (ssc_number_t)shadedb_gpoa;
-							p_shadedb_dpoa[nn][idx] = (ssc_number_t)shadedb_dpoa;
-							p_shadedb_pv_cell_temp[nn][idx] = (ssc_number_t)tcell;
-							p_shadedb_mods_per_str[nn][idx] = (ssc_number_t)Subarrays[nn]->nModulesPerString;
-							p_shadedb_str_vmp_stc[nn][idx] = (ssc_number_t)shadedb_str_vmp_stc;
-							p_shadedb_mppt_lo[nn][idx] = (ssc_number_t)shadedb_mppt_lo;
-							p_shadedb_mppt_hi[nn][idx] = (ssc_number_t)shadedb_mppt_hi;
-							log("shade db hour " + util::to_string((int)hour) +"\n" + shadeCalculator->get_warning());
-#endif
-							// fraction shaded for comparison
-							PVSystem->p_shadeDBShadeFraction[nn][idx] = (ssc_number_t)(Subarrays[nn]->shadeCalculator.dc_shade_factor());
-						} 
+							PVSystem->p_derateSelfShading[nn][idx] = (ssc_number_t)1;
+							PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)(1 - shad1xf);
+							PVSystem->p_derateSelfShadingDiffuse[nn][idx] = (ssc_number_t)1; //no diffuse derate for linear shading
+							PVSystem->p_derateSelfShadingReflected[nn][idx] = (ssc_number_t)1; //no reflected derate for linear shading
+						}
 					}
-					else
+
+					else if (ss_exec(Subarrays[nn]->selfShadingInputs, stilt, sazi, solzen, solazi, beam_to_use, ibeam, (iskydiff + ignddiff), alb, trackbool, linear, shad1xf, Subarrays[nn]->selfShadingOutputs))
 					{
-						if (!Subarrays[nn]->shadeCalculator.fbeam(hour, solalt, solazi, jj, step_per_hour))
+						if (linear) //fixed tilt linear
 						{
-							throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
-						}
-					}
-
-					// apply hourly shading factors to beam (if none enabled, factors are 1.0) 
-					// shj 3/21/16 - update to handle negative shading loss
-					if (Subarrays[nn]->shadeCalculator.beam_shade_factor() != 1.0){
-						//							if (sa[nn].shad.beam_shade_factor() < 1.0){
-						// Sara 1/25/16 - shading database derate applied to dc only
-						// shading loss applied to beam if not from shading database
-						ibeam *= Subarrays[nn]->shadeCalculator.beam_shade_factor();
-						if (radmode == irrad::POA_R || radmode == irrad::POA_P){
-							Subarrays[nn]->poa.usePOAFromWF = false;
-							if (Subarrays[nn]->poa.poaShadWarningCount == 0){
-								log(util::format("Combining POA irradiance as input with the beam shading losses at time [y:%d m:%d d:%d h:%d] forces SAM to use a POA decomposition model to calculate incident beam irradiance",
-									wf.year, wf.month, wf.day, wf.hour), SSC_WARNING, (float)idx);
-							}
-							else{
-								log(util::format("Combining POA irradiance as input with the beam shading losses at time [y:%d m:%d d:%d h:%d] forces SAM to use a POA decomposition model to calculate incident beam irradiance",
-									wf.year, wf.month, wf.day, wf.hour), SSC_NOTICE, (float)idx);
-							}
-							Subarrays[nn]->poa.poaShadWarningCount++;
-						}
-					}
-
-					// apply sky diffuse shading factor (specified as constant, nominally 1.0 if disabled in UI)
-					if (Subarrays[nn]->shadeCalculator.fdiff() < 1.0){
-						iskydiff *= Subarrays[nn]->shadeCalculator.fdiff();
-						if (radmode == irrad::POA_R || radmode == irrad::POA_P){
-							if (idx == 0)
-								log("Combining POA irradiance as input with the diffuse shading losses forces SAM to use a POA decomposition model to calculate incident diffuse irradiance", SSC_WARNING);
-							Subarrays[nn]->poa.usePOAFromWF = false;
-						}
-					}
-
-					double beam_shading_factor = Subarrays[nn]->shadeCalculator.beam_shade_factor();
-
-					//self-shading calculations
-					if (((Subarrays[nn]->trackMode == 0 || Subarrays[nn]->trackMode == 4) && (Subarrays[nn]->shadeMode == 1 || Subarrays[nn]->shadeMode == 2)) //fixed tilt or timeseries tilt, self-shading (linear or non-linear) OR
-						|| (Subarrays[nn]->trackMode == 1 && (Subarrays[nn]->shadeMode == 1 || Subarrays[nn]->shadeMode == 2) && Subarrays[nn]->backtrackingEnabled == 0)) //one-axis tracking, self-shading, not backtracking
-					{
-
-						if (radmode == irrad::POA_R || radmode == irrad::POA_P){
-							if (idx == 0)
-								log("Combining POA irradiance as input with self shading forces SAM to employ a POA decomposition model to calculate incident beam irradiance", SSC_WARNING);
-							Subarrays[nn]->poa.usePOAFromWF = false;
-						}
-
-						// info to be passed to self-shading function
-						bool trackbool = (Subarrays[nn]->trackMode == 1);	// 0 for fixed tilt and timeseries tilt, 1 for one-axis
-						bool linear = (Subarrays[nn]->shadeMode == 2); //0 for full self-shading, 1 for linear self-shading
-
-						//geometric fraction of the array that is shaded for one-axis trackers.
-						//USES A DIFFERENT FUNCTION THAN THE SELF-SHADING BECAUSE SS IS MEANT FOR FIXED ONLY. shadeFraction1x IS FOR ONE-AXIS TRACKERS ONLY.
-						//used in the non-linear self-shading calculator for one-axis tracking only
-						double shad1xf = 0;
-						if (trackbool)
-							shad1xf = shadeFraction1x(solazi, solzen, Subarrays[nn]->tiltDegrees, Subarrays[nn]->azimuthDegrees, Subarrays[nn]->groundCoverageRatio, rot);
-
-						//execute self-shading calculations
-						ssc_number_t beam_to_use; //some self-shading calculations require DNI, NOT ibeam (beam in POA). Need to know whether to use DNI from wf or calculated, depending on radmode
-						if (radmode == irrad::DN_DF || radmode == irrad::DN_GH) beam_to_use = (ssc_number_t)wf.dn;
-						else beam_to_use = Irradiance->p_IrradianceCalculated[2][hour * step_per_hour]; // top of hour in first year
-
-						if (linear && trackbool) //one-axis linear
-						{
-							ibeam *= (1 - shad1xf); //derate beam irradiance linearly by the geometric shading fraction calculated above per Chris Deline 2/10/16
-							beam_shading_factor *= (1 - shad1xf);
+							ibeam *= (1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
+							beam_shading_factor *= (1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
 							if (iyear == 0)
 							{
 								PVSystem->p_derateSelfShading[nn][idx] = (ssc_number_t)1;
-								PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)(1 - shad1xf);
+								PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)(1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
 								PVSystem->p_derateSelfShadingDiffuse[nn][idx] = (ssc_number_t)1; //no diffuse derate for linear shading
 								PVSystem->p_derateSelfShadingReflected[nn][idx] = (ssc_number_t)1; //no reflected derate for linear shading
 							}
 						}
-
-						else if (ss_exec(Subarrays[nn]->selfShadingInputs, stilt, sazi, solzen, solazi, beam_to_use, ibeam, (iskydiff + ignddiff), alb, trackbool, linear, shad1xf, Subarrays[nn]->selfShadingOutputs))
+						else //non-linear: fixed tilt AND one-axis
 						{
-							if (linear) //fixed tilt linear
+							if (iyear == 0)
 							{
-								ibeam *= (1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
-								beam_shading_factor *= (1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
-								if (iyear == 0)
-								{
-									PVSystem->p_derateSelfShading[nn][idx] = (ssc_number_t)1;
-									PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)(1 - Subarrays[nn]->selfShadingOutputs.m_shade_frac_fixed);
-									PVSystem->p_derateSelfShadingDiffuse[nn][idx] = (ssc_number_t)1; //no diffuse derate for linear shading
-									PVSystem->p_derateSelfShadingReflected[nn][idx] = (ssc_number_t)1; //no reflected derate for linear shading
-								}
+								PVSystem->p_derateSelfShadingDiffuse[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_diffuse_derate;
+								PVSystem->p_derateSelfShadingReflected[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_reflected_derate;
+								PVSystem->p_derateSelfShading[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_dc_derate;
+								PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)1;
 							}
-							else //non-linear: fixed tilt AND one-axis
-							{
-								if (iyear == 0)
-								{
-									PVSystem->p_derateSelfShadingDiffuse[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_diffuse_derate;
-									PVSystem->p_derateSelfShadingReflected[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_reflected_derate;
-									PVSystem->p_derateSelfShading[nn][idx] = (ssc_number_t)Subarrays[nn]->selfShadingOutputs.m_dc_derate;
-									PVSystem->p_derateLinear[nn][idx] = (ssc_number_t)1;
-								}
 
-								// Sky diffuse and ground-reflected diffuse are derated according to C. Deline's algorithm
-								iskydiff *= Subarrays[nn]->selfShadingOutputs.m_diffuse_derate;
-								ignddiff *= Subarrays[nn]->selfShadingOutputs.m_reflected_derate;
-								// Beam is not derated- all beam derate effects (linear and non-linear) are taken into account in the nonlinear_dc_shading_derate
-								Subarrays[nn]->poa.nonlinearDCShadingDerate = Subarrays[nn]->selfShadingOutputs.m_dc_derate;
-							}
+							// Sky diffuse and ground-reflected diffuse are derated according to C. Deline's algorithm
+							iskydiff *= Subarrays[nn]->selfShadingOutputs.m_diffuse_derate;
+							ignddiff *= Subarrays[nn]->selfShadingOutputs.m_reflected_derate;
+							// Beam is not derated- all beam derate effects (linear and non-linear) are taken into account in the nonlinear_dc_shading_derate
+							Subarrays[nn]->poa.nonlinearDCShadingDerate = Subarrays[nn]->selfShadingOutputs.m_dc_derate;
 						}
-						else
-							throw exec_error("pvsamv1", util::format("Self-shading calculation failed at %d", (int)idx));
 					}
-
-					double poashad = (radmode == irrad::POA_R) ? ipoa[nn] : (ibeam + iskydiff + ignddiff);
-
-					// determine sub-array contribution to total shaded plane of array for this hour
-					ts_accum_poa_front_shaded += poashad * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-
-					// apply soiling derate to all components of irradiance
-					double soiling_factor = 1.0;
-					int month_idx = wf.month - 1;
-					if (month_idx >= 0 && month_idx < 12)
-					{
-						soiling_factor = Subarrays[nn]->monthlySoiling[month_idx];
-						ibeam *= soiling_factor;
-						iskydiff *= soiling_factor;
-						ignddiff *= soiling_factor;
-						if (radmode == irrad::POA_R || radmode == irrad::POA_P){
-							ipoa[nn] *= soiling_factor;
-							if (soiling_factor < 1 && idx == 0)
-								log("Soiling may already be accounted for in the input POA data. Please confirm that the input data does not contain soiling effects, or remove the additional losses on the Losses page.", SSC_WARNING);
-						}
-						beam_shading_factor *= soiling_factor;
-					}
-
-					// Calculate total front irradiation after soiling added to shading
-					ipoa_front[nn] = ibeam + iskydiff + ignddiff;
-					ts_accum_poa_front_shaded_soiled += ipoa_front[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-					
-					// Calculate rear-side irradiance for bifacial modules
-					if (Subarrays[0]->Module->isBifacial)
-					{
-						bifaciality = Subarrays[0]->Module->bifaciality;
-						double slopeLength = Subarrays[nn]->selfShadingInputs.length * Subarrays[nn]->selfShadingInputs.nmody;
-						if (Subarrays[nn]->selfShadingInputs.mod_orient == 1) {
-							slopeLength = Subarrays[nn]->selfShadingInputs.width * Subarrays[nn]->selfShadingInputs.nmody;
-						}
-						irr.calc_rear_side(Subarrays[0]->Module->bifacialTransmissionFactor, Subarrays[0]->Module->groundClearanceHeight, slopeLength);
-						ipoa_rear[nn] = irr.get_poa_rear();
-						ipoa_rear_after_losses[nn] = ipoa_rear[nn] * (1 - Subarrays[nn]->rearIrradianceLossPercent);
-					}
-
-					ts_accum_poa_rear += ipoa_rear[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-					ts_accum_poa_rear_after_losses = ts_accum_poa_rear * (1 - Subarrays[nn]->rearIrradianceLossPercent);
-
-					if (iyear == 0) 
-					{
-						// save sub-array level outputs			
-						PVSystem->p_poaShadedFront[nn][idx] = (ssc_number_t)poashad;
-						PVSystem->p_poaShadedSoiledFront[nn][idx] = (ssc_number_t)ipoa_front[nn];
-						PVSystem->p_poaBeamFront[nn][idx] = (ssc_number_t)ibeam;
-						PVSystem->p_poaDiffuseFront[nn][idx] = (ssc_number_t)(iskydiff + ignddiff);
-						PVSystem->p_poaRear[nn][idx] = (ssc_number_t)(ipoa_rear_after_losses[nn]);
-						PVSystem->p_beamShadingFactor[nn][idx] = (ssc_number_t)beam_shading_factor;
-						PVSystem->p_axisRotation[nn][idx] = (ssc_number_t)rot;
-						PVSystem->p_idealRotation[nn][idx] = (ssc_number_t)(rot - btd);
-						PVSystem->p_angleOfIncidence[nn][idx] = (ssc_number_t)aoi;
-						PVSystem->p_surfaceTilt[nn][idx] = (ssc_number_t)stilt;
-						PVSystem->p_surfaceAzimuth[nn][idx] = (ssc_number_t)sazi;
-						PVSystem->p_derateSoiling[nn][idx] = (ssc_number_t)soiling_factor;
-					}
-
-					// accumulate incident total radiation (W) in this timestep (all subarrays)
-					ts_accum_poa_front_beam_eff += ibeam * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-
-					// save the required irradiance inputs on array plane for the module output calculations.
-					Subarrays[nn]->poa.poaBeamFront = ibeam;
-					Subarrays[nn]->poa.poaDiffuseFront = iskydiff;
-					Subarrays[nn]->poa.poaGroundFront = ignddiff;
-					Subarrays[nn]->poa.poaRear = ipoa_rear_after_losses[nn];
-					Subarrays[nn]->poa.poaTotal = (radmode == irrad::POA_R) ? ipoa[nn] :(ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality);
-					Subarrays[nn]->poa.angleOfIncidenceDegrees = aoi;
-					Subarrays[nn]->poa.sunUp = sunup;
-					Subarrays[nn]->poa.surfaceTiltDegrees = stilt;
-					Subarrays[nn]->poa.surfaceAzimuthDegrees = sazi;
+					else
+						throw exec_error("pvsamv1", util::format("Self-shading calculation failed at %d", (int)idx));
 				}
 
-				std::vector<double> mpptVoltageClipping; //a vector to store power that is clipped due to the inverter MPPT low & high voltage limits for each subarray
-				for (size_t nn = 0; nn < PVSystem->numberOfSubarrays; nn++) {
-					mpptVoltageClipping.push_back(0.0);
-				}
+				double poashad = (radmode == irrad::POA_R) ? ipoa[nn] : (ibeam + iskydiff + ignddiff);
 
-				//Calculate power of each MPPT input
-				for (size_t mpptInput = 0; mpptInput < PVSystem->Inverter->nMpptInputs; mpptInput++) //remember that actual named mppt inputs are 1-indexed, and these are 0-indexed
+				// determine sub-array contribution to total shaded plane of array for this hour
+				ts_accum_poa_front_shaded += poashad * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+
+				// apply soiling derate to all components of irradiance
+				double soiling_factor = 1.0;
+				int month_idx = wf.month - 1;
+				if (month_idx >= 0 && month_idx < 12)
 				{
-					int nSubarraysOnMpptInput = (int)(PVSystem->mpptMapping[mpptInput].size()); //number of subarrays attached to this MPPT input
-					std::vector<int> SubarraysOnMpptInput = PVSystem->mpptMapping[mpptInput]; //vector of which subarrays are attached to this MPPT input
+					soiling_factor = Subarrays[nn]->monthlySoiling[month_idx];
+					ibeam *= soiling_factor;
+					iskydiff *= soiling_factor;
+					ignddiff *= soiling_factor;
+					if (radmode == irrad::POA_R || radmode == irrad::POA_P){
+						ipoa[nn] *= soiling_factor;
+						if (soiling_factor < 1 && idx == 0)
+							log("Soiling may already be accounted for in the input POA data. Please confirm that the input data does not contain soiling effects, or remove the additional losses on the Losses page.", SSC_WARNING);
+					}
+					beam_shading_factor *= soiling_factor;
+				}
 
-					//string voltage for this MPPT input- if 1 subarray, this will be the string voltage. if >1 subarray and mismatch enabled, this
-					//will be the string voltage found by the mismatch calculation. if >1 subarray and mismatch not enabled, this will be the average
-					//voltage of the strings from all the subarrays on this mppt input.
-					//initialize it as -1 and check for that later
-					double stringVoltage = -1;
+				// Calculate total front irradiation after soiling added to shading
+				ipoa_front[nn] = ibeam + iskydiff + ignddiff;
+				ts_accum_poa_front_shaded_soiled += ipoa_front[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+					
+				// Calculate rear-side irradiance for bifacial modules
+				if (Subarrays[0]->Module->isBifacial)
+				{
+					bifaciality = Subarrays[0]->Module->bifaciality;
+					double slopeLength = Subarrays[nn]->selfShadingInputs.length * Subarrays[nn]->selfShadingInputs.nmody;
+					if (Subarrays[nn]->selfShadingInputs.mod_orient == 1) {
+						slopeLength = Subarrays[nn]->selfShadingInputs.width * Subarrays[nn]->selfShadingInputs.nmody;
+					}
+					irr.calc_rear_side(Subarrays[0]->Module->bifacialTransmissionFactor, Subarrays[0]->Module->groundClearanceHeight, slopeLength);
+					ipoa_rear[nn] = irr.get_poa_rear();
+					ipoa_rear_after_losses[nn] = ipoa_rear[nn] * (1 - Subarrays[nn]->rearIrradianceLossPercent);
+				}
 
-					//mismatch calculations assume that the inverter MPPT operates all strings on that MPPT input at the same voltage.
-					//this algorithm sweeps across a range of string voltages, calculating total power for all strings on this MPPT input at each voltage.
-					//it finds the maximum total power of all string voltages swept, then uses that in subsequent power calculations for each subarray. 
-					if (PVSystem->enableMismatchVoltageCalc)
+				ts_accum_poa_rear += ipoa_rear[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+				ts_accum_poa_rear_after_losses = ts_accum_poa_rear * (1 - Subarrays[nn]->rearIrradianceLossPercent);
+
+				if (iyear == 0) 
+				{
+					// save sub-array level outputs			
+					PVSystem->p_poaShadedFront[nn][idx] = (ssc_number_t)poashad;
+					PVSystem->p_poaShadedSoiledFront[nn][idx] = (ssc_number_t)ipoa_front[nn];
+					PVSystem->p_poaBeamFront[nn][idx] = (ssc_number_t)ibeam;
+					PVSystem->p_poaDiffuseFront[nn][idx] = (ssc_number_t)(iskydiff + ignddiff);
+					PVSystem->p_poaRear[nn][idx] = (ssc_number_t)(ipoa_rear_after_losses[nn]);
+					PVSystem->p_beamShadingFactor[nn][idx] = (ssc_number_t)beam_shading_factor;
+					PVSystem->p_axisRotation[nn][idx] = (ssc_number_t)rot;
+					PVSystem->p_idealRotation[nn][idx] = (ssc_number_t)(rot - btd);
+					PVSystem->p_angleOfIncidence[nn][idx] = (ssc_number_t)aoi;
+					PVSystem->p_surfaceTilt[nn][idx] = (ssc_number_t)stilt;
+					PVSystem->p_surfaceAzimuth[nn][idx] = (ssc_number_t)sazi;
+					PVSystem->p_derateSoiling[nn][idx] = (ssc_number_t)soiling_factor;
+				}
+
+				// accumulate incident total radiation (W) in this timestep (all subarrays)
+				ts_accum_poa_front_beam_eff += ibeam * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+
+				// save the required irradiance inputs on array plane for the module output calculations.
+				Subarrays[nn]->poa.poaBeamFront = ibeam;
+				Subarrays[nn]->poa.poaDiffuseFront = iskydiff;
+				Subarrays[nn]->poa.poaGroundFront = ignddiff;
+				Subarrays[nn]->poa.poaRear = ipoa_rear_after_losses[nn];
+				Subarrays[nn]->poa.poaTotal = (radmode == irrad::POA_R) ? ipoa[nn] :(ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality);
+				Subarrays[nn]->poa.angleOfIncidenceDegrees = aoi;
+				Subarrays[nn]->poa.sunUp = sunup;
+				Subarrays[nn]->poa.surfaceTiltDegrees = stilt;
+				Subarrays[nn]->poa.surfaceAzimuthDegrees = sazi;
+			}
+
+			std::vector<double> mpptVoltageClipping; //a vector to store power that is clipped due to the inverter MPPT low & high voltage limits for each subarray
+			for (size_t nn = 0; nn < PVSystem->numberOfSubarrays; nn++) {
+				mpptVoltageClipping.push_back(0.0);
+			}
+
+			//Calculate power of each MPPT input
+			for (size_t mpptInput = 0; mpptInput < PVSystem->Inverter->nMpptInputs; mpptInput++) //remember that actual named mppt inputs are 1-indexed, and these are 0-indexed
+			{
+				int nSubarraysOnMpptInput = (int)(PVSystem->mpptMapping[mpptInput].size()); //number of subarrays attached to this MPPT input
+				std::vector<int> SubarraysOnMpptInput = PVSystem->mpptMapping[mpptInput]; //vector of which subarrays are attached to this MPPT input
+
+				//string voltage for this MPPT input- if 1 subarray, this will be the string voltage. if >1 subarray and mismatch enabled, this
+				//will be the string voltage found by the mismatch calculation. if >1 subarray and mismatch not enabled, this will be the average
+				//voltage of the strings from all the subarrays on this mppt input.
+				//initialize it as -1 and check for that later
+				double stringVoltage = -1;
+
+				//mismatch calculations assume that the inverter MPPT operates all strings on that MPPT input at the same voltage.
+				//this algorithm sweeps across a range of string voltages, calculating total power for all strings on this MPPT input at each voltage.
+				//it finds the maximum total power of all string voltages swept, then uses that in subsequent power calculations for each subarray. 
+				if (PVSystem->enableMismatchVoltageCalc)
+				{
+					double vmax = PVSystem->Inverter->mpptHiVoltage; //the upper MPPT range of the inverter is the high end for string voltages that it will control
+					double vmin = PVSystem->Inverter->mpptLowVoltage; //the lower MPPT range of the inverter is the low end for string voltages that it will control
+					const int NP = 100; //number of points in between max and min voltage to sweep
+					double Pmax = 0; //variable to store the maximum power for comparison between different points along the voltage sweep
+					// sweep voltage, calculating current for each subarray, add all subarray currents together at each voltage
+					for (int i = 0; i < NP; i++)
 					{
-						double vmax = PVSystem->Inverter->mpptHiVoltage; //the upper MPPT range of the inverter is the high end for string voltages that it will control
-						double vmin = PVSystem->Inverter->mpptLowVoltage; //the lower MPPT range of the inverter is the low end for string voltages that it will control
-						const int NP = 100; //number of points in between max and min voltage to sweep
-						double Pmax = 0; //variable to store the maximum power for comparison between different points along the voltage sweep
-						// sweep voltage, calculating current for each subarray, add all subarray currents together at each voltage
-						for (int i = 0; i < NP; i++)
-						{
-							double stringV = vmin + (vmax - vmin)*i / ((double)NP); //voltage of a string at this point in the voltage sweep							
+						double stringV = vmin + (vmax - vmin)*i / ((double)NP); //voltage of a string at this point in the voltage sweep							
 
-							//if the voltage is ok, continue to calculate total power on this MPPT input at this voltage
-							double P = 0; //temporary variable to store the total power on this MPPT input at this voltage
+						//if the voltage is ok, continue to calculate total power on this MPPT input at this voltage
+						double P = 0; //temporary variable to store the total power on this MPPT input at this voltage
+						for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
+						{
+							int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
+							double V = stringV / (double)Subarrays[nn]->nModulesPerString; //voltage of an individual module on a string on this subarray
+
+							//initalize pvinput and pvoutput structures for the model
+							pvinput_t in(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+								wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
+								solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+								Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+								((double)wf.hour) + wf.minute / 60.0,
+								radmode, Subarrays[nn]->poa.usePOAFromWF);
+							pvoutput_t out(0, 0, 0, 0, 0, 0, 0, 0);
+
+							//calculate the output power for one module in this subarray at this voltage
+							if (Subarrays[nn]->poa.sunUp)
+							{
+								double tcell = wf.tdry;
+								// calculate cell temperature using selected temperature model
+								(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, V, tcell);
+								// calculate module power output using conversion model previously specified
+								(*Subarrays[nn]->Module->moduleModel)(in, tcell, V, out);
+							}
+							//add the power from this subarray to the total power
+							P += V * out.Current * (double)Subarrays[nn]->nModulesPerString * (double)Subarrays[nn]->nStrings;
+						}
+
+						//check if the total power at this voltage is higher than the power values we've calculated before, if so, set it as the new max
+						if (P > Pmax)
+						{
+							Pmax = P;
+							stringVoltage = stringV;
+						}
+					}
+
+				} //now we have the string voltage at which the MPPT input will produce max power, to be used in subsequent calcs
+
+				//now calculate power for each subarray on this mppt input. stringVoltage will still be -1 if mismatch calcs aren't enabled, or the value decided by mismatch calcs if they are enabled
+				std::vector<pvinput_t> in{ num_subarrays }; //create arrays for the pv input and output structures because we have to deal with them in multiple loops to check for MPPT clipping
+				std::vector<pvoutput_t> out{ num_subarrays };
+				double tcell = wf.tdry;
+				for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
+				{
+					int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
+					//initalize pvinput and pvoutput structures for the model
+					pvinput_t in_temp(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
+						wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
+						solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
+						Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
+						((double)wf.hour) + wf.minute / 60.0,
+						radmode, Subarrays[nn]->poa.usePOAFromWF);
+					pvoutput_t out_temp(0, 0, 0, 0, 0, 0, 0, 0);
+					in[nn] = in_temp;
+					out[nn] = out_temp;					
+						
+					if (Subarrays[nn]->poa.sunUp)
+					{
+						//module voltage value to be passed into module power function. 
+						//if -1 is passed in, power will be calculated at max power point. 
+						//if a voltage value is passed in, power will be calculated at the specified voltage for all single-diode module models
+						double module_voltage = -1;
+						if (stringVoltage != -1) module_voltage = stringVoltage / (double)Subarrays[nn]->nModulesPerString;
+						// calculate cell temperature using selected temperature model
+						// calculate module power output using conversion model previously specified
+						(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
+						(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
+					}
+				}
+
+				//assign input voltage at this MPPT input
+				//if mismatch was enabled, the voltage already was clipped to the inverter MPPT range as needed and  
+				//the string voltage is the same for all subarrays, so the voltage at the MPPT input is the same as the string voltage of any subarray
+				if (PVSystem->enableMismatchVoltageCalc) {
+					PVSystem->p_mpptVoltage[mpptInput][idx] = (ssc_number_t)out[SubarraysOnMpptInput[0]].Voltage * Subarrays[SubarraysOnMpptInput[0]]->nModulesPerString;
+				}
+				//if mismatch wasn't enabled, we assume the MPPT input voltage is a weighted average of the string voltages on this MPPT input,
+				//and still need to check that average against the inverter MPPT bounds
+				else
+				{
+					//create temporary values to calculate the weighted average string voltage
+					double nStrings = 0;
+					double avgVoltage = 0;
+					for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++)
+					{
+						int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray itself
+						nStrings += Subarrays[nn]->nStrings;
+						avgVoltage += out[nn].Voltage * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+					}
+					avgVoltage /= nStrings;
+					PVSystem->p_mpptVoltage[mpptInput][idx] = (ssc_number_t)avgVoltage;
+
+					//check the weighted average string voltage against the inverter MPPT bounds
+					bool recalculatePower = false;
+					if (PVSystem->clipMpptWindow)
+					{
+						if (avgVoltage < PVSystem->Inverter->mpptLowVoltage)
+						{
+							avgVoltage = PVSystem->Inverter->mpptLowVoltage;
+							recalculatePower = true;
+						}
+						else if (avgVoltage > PVSystem->Inverter->mpptHiVoltage)
+						{
+							avgVoltage = PVSystem->Inverter->mpptHiVoltage;
+							recalculatePower = true;
+						}
+							
+						//if MPPT clipping occurs, we need to recalculate the module power for each subarray
+						if (recalculatePower)
+						{
 							for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
 							{
 								int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
-								double V = stringV / (double)Subarrays[nn]->nModulesPerString; //voltage of an individual module on a string on this subarray
 
-								//initalize pvinput and pvoutput structures for the model
-								pvinput_t in(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
-									wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
-									solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
-									Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
-									((double)wf.hour) + wf.minute / 60.0,
-									radmode, Subarrays[nn]->poa.usePOAFromWF);
-								pvoutput_t out(0, 0, 0, 0, 0, 0, 0, 0);
+								if (iyear == 0) mpptVoltageClipping[nn] = out[nn].Power; //initialize the voltage clipping loss with the power at module MPP, subtract from this later for the actual MPPT clipping loss
 
-								//calculate the output power for one module in this subarray at this voltage
-								if (Subarrays[nn]->poa.sunUp)
-								{
-									double tcell = wf.tdry;
-									// calculate cell temperature using selected temperature model
-									(*Subarrays[nn]->Module->cellTempModel)(in, *Subarrays[nn]->Module->moduleModel, V, tcell);
-									// calculate module power output using conversion model previously specified
-									(*Subarrays[nn]->Module->moduleModel)(in, tcell, V, out);
-								}
-								//add the power from this subarray to the total power
-								P += V * out.Current * (double)Subarrays[nn]->nModulesPerString * (double)Subarrays[nn]->nStrings;
+								//recalculate power at the correct voltage
+								double module_voltage = avgVoltage / (double)Subarrays[nn]->nModulesPerString;
+								(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
+								(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
+
+								if (iyear == 0)	mpptVoltageClipping[nn] -= out[nn].Power; //subtract the power that remains after voltage clipping in order to get the total loss. if no power was lost, all the power will be subtracted away again.
 							}
-
-							//check if the total power at this voltage is higher than the power values we've calculated before, if so, set it as the new max
-							if (P > Pmax)
-							{
-								Pmax = P;
-								stringVoltage = stringV;
-							}
-						}
-
-					} //now we have the string voltage at which the MPPT input will produce max power, to be used in subsequent calcs
-
-					//now calculate power for each subarray on this mppt input. stringVoltage will still be -1 if mismatch calcs aren't enabled, or the value decided by mismatch calcs if they are enabled
-					std::vector<pvinput_t> in{ num_subarrays }; //create arrays for the pv input and output structures because we have to deal with them in multiple loops to check for MPPT clipping
-					std::vector<pvoutput_t> out{ num_subarrays };
-					double tcell = wf.tdry;
-					for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
-					{
-						int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
-						//initalize pvinput and pvoutput structures for the model
-						pvinput_t in_temp(Subarrays[nn]->poa.poaBeamFront, Subarrays[nn]->poa.poaDiffuseFront, Subarrays[nn]->poa.poaGroundFront, Subarrays[nn]->poa.poaRear, Subarrays[nn]->poa.poaTotal,
-							wf.tdry, wf.tdew, wf.wspd, wf.wdir, wf.pres,
-							solzen, Subarrays[nn]->poa.angleOfIncidenceDegrees, hdr.elev,
-							Subarrays[nn]->poa.surfaceTiltDegrees, Subarrays[nn]->poa.surfaceAzimuthDegrees,
-							((double)wf.hour) + wf.minute / 60.0,
-							radmode, Subarrays[nn]->poa.usePOAFromWF);
-						pvoutput_t out_temp(0, 0, 0, 0, 0, 0, 0, 0);
-						in[nn] = in_temp;
-						out[nn] = out_temp;					
-						
-						if (Subarrays[nn]->poa.sunUp)
-						{
-							//module voltage value to be passed into module power function. 
-							//if -1 is passed in, power will be calculated at max power point. 
-							//if a voltage value is passed in, power will be calculated at the specified voltage for all single-diode module models
-							double module_voltage = -1;
-							if (stringVoltage != -1) module_voltage = stringVoltage / (double)Subarrays[nn]->nModulesPerString;
-							// calculate cell temperature using selected temperature model
-							// calculate module power output using conversion model previously specified
-							(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
-							(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
-						}
-					}
-
-					//assign input voltage at this MPPT input
-					//if mismatch was enabled, the voltage already was clipped to the inverter MPPT range as needed and  
-					//the string voltage is the same for all subarrays, so the voltage at the MPPT input is the same as the string voltage of any subarray
-					if (PVSystem->enableMismatchVoltageCalc) {
-						PVSystem->p_mpptVoltage[mpptInput][idx] = (ssc_number_t)out[SubarraysOnMpptInput[0]].Voltage * Subarrays[SubarraysOnMpptInput[0]]->nModulesPerString;
-					}
-					//if mismatch wasn't enabled, we assume the MPPT input voltage is a weighted average of the string voltages on this MPPT input,
-					//and still need to check that average against the inverter MPPT bounds
-					else
-					{
-						//create temporary values to calculate the weighted average string voltage
-						double nStrings = 0;
-						double avgVoltage = 0;
-						for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++)
-						{
-							int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray itself
-							nStrings += Subarrays[nn]->nStrings;
-							avgVoltage += out[nn].Voltage * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-						}
-						avgVoltage /= nStrings;
-						PVSystem->p_mpptVoltage[mpptInput][idx] = (ssc_number_t)avgVoltage;
-
-						//check the weighted average string voltage against the inverter MPPT bounds
-						bool recalculatePower = false;
-						if (PVSystem->clipMpptWindow)
-						{
-							if (avgVoltage < PVSystem->Inverter->mpptLowVoltage)
-							{
-								avgVoltage = PVSystem->Inverter->mpptLowVoltage;
-								recalculatePower = true;
-							}
-							else if (avgVoltage > PVSystem->Inverter->mpptHiVoltage)
-							{
-								avgVoltage = PVSystem->Inverter->mpptHiVoltage;
-								recalculatePower = true;
-							}
-							
-							//if MPPT clipping occurs, we need to recalculate the module power for each subarray
-							if (recalculatePower)
-							{
-								for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
-								{
-									int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
-
-									if (iyear == 0) mpptVoltageClipping[nn] = out[nn].Power; //initialize the voltage clipping loss with the power at module MPP, subtract from this later for the actual MPPT clipping loss
-
-									//recalculate power at the correct voltage
-									double module_voltage = avgVoltage / (double)Subarrays[nn]->nModulesPerString;
-									(*Subarrays[nn]->Module->cellTempModel)(in[nn], *Subarrays[nn]->Module->moduleModel, module_voltage, tcell);
-									(*Subarrays[nn]->Module->moduleModel)(in[nn], tcell, module_voltage, out[nn]);
-
-									if (iyear == 0)	mpptVoltageClipping[nn] -= out[nn].Power; //subtract the power that remains after voltage clipping in order to get the total loss. if no power was lost, all the power will be subtracted away again.
-								}
-							}
-						}
-					}
-
-					//now that we have the correct power for all subarrays, subject to inverter MPPT clipping, save outputs 
-					for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
-					{
-						int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
-
-						//check for weird results
-						if (out[nn].Voltage > Subarrays[nn]->Module->moduleModel->VocRef()*1.3)
-							log(util::format("Module voltage is unrealistically high (exceeds 1.3*VocRef) at [mdhm: %d %d %d %lg]: %lg V\n", wf.month, wf.day, wf.hour, wf.minute, out[nn].Voltage), SSC_NOTICE);
-						if (!std::isfinite(out[nn].Power))
-						{
-							out[nn].Power = 0;
-							out[nn].Voltage = 0;
-							out[nn].Current = 0;
-							out[nn].Efficiency = 0;
-							out[nn].CellTemp = tcell;
-							log(util::format("Non-finite power output calculated at [mdhm: %d %d %d %lg], set to zero.\n"
-								"could be due to anomolous equation behavior at very low irradiances (poa: %lg W/m2)",
-								wf.month, wf.day, wf.hour, wf.minute, Subarrays[nn]->poa.poaTotal), SSC_NOTICE);
-						}
-
-						// save DC module outputs for this subarray
-						Subarrays[nn]->Module->dcPowerW = out[nn].Power;
-						Subarrays[nn]->Module->dcEfficiency = out[nn].Efficiency * 100;
-						Subarrays[nn]->Module->dcVoltage = out[nn].Voltage;
-						Subarrays[nn]->Module->temperatureCellCelcius = out[nn].CellTemp;
-						Subarrays[nn]->Module->currentShortCircuit = out[nn].Isc_oper;
-						Subarrays[nn]->Module->voltageOpenCircuit = out[nn].Voc_oper;
-						Subarrays[nn]->Module->angleOfIncidenceModifier = out[nn].AOIModifier;
-						
-						// Lifetime dcStringVoltage
-						dcStringVoltage[nn].push_back(Subarrays[nn]->Module->dcVoltage * Subarrays[nn]->nModulesPerString);
-
-						// Output front-side irradiance after the reflection (IAM) loss - needs to be after the module model for now because reflection effects are part of the module model
-						if (iyear == 0)
-						{
-							ipoa_front[nn] *= out[nn].AOIModifier;
-							PVSystem->p_poaFront[nn][idx] = (radmode == irrad::POA_R) ? (ssc_number_t)ipoa[nn] : (ssc_number_t)(ipoa_front[nn]);
-							PVSystem->p_poaTotal[nn][idx] = (radmode == irrad::POA_R) ? (ssc_number_t)ipoa[nn] : (ssc_number_t)(ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality);
-
-							ts_accum_poa_front_total += ipoa_front[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-							ts_accum_poa_total_eff += ((radmode == irrad::POA_R) ? ipoa[nn] : (ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality)) * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-
-							//assign final string voltage output
-							PVSystem->p_dcStringVoltage[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->dcVoltage * Subarrays[nn]->nModulesPerString;
 						}
 					}
 				}
 
-				// sum up all DC power from the whole array
-				PVSystem->p_systemDCPower[idx] = 0;
-				for (size_t nn = 0; nn < num_subarrays; nn++)
+				//now that we have the correct power for all subarrays, subject to inverter MPPT clipping, save outputs 
+				for (int nSubarray = 0; nSubarray < nSubarraysOnMpptInput; nSubarray++) //sweep across all subarrays connected to this MPPT input
 				{
-					// DC derates for snow and shading must be applied first
-					// these can't be applied before the power calculation because they are POWER derates
+					int nn = SubarraysOnMpptInput[nSubarray]; //get the index of the subarray we're checking here
 
-					// self-shading derate (by default it is 1.0 if disbled)
-					Subarrays[nn]->Module->dcPowerW *= Subarrays[nn]->poa.nonlinearDCShadingDerate;
-					if (iyear == 0) mpptVoltageClipping[nn] *= Subarrays[nn]->poa.nonlinearDCShadingDerate;
-
-					// Sara 1/25/16 - shading database derate applied to dc only
-					// shading loss applied to beam if not from shading database
-					Subarrays[nn]->Module->dcPowerW *= Subarrays[nn]->shadeCalculator.dc_shade_factor();
-
-					// scale power and mppt voltage clipping to subarray dimensions
-					Subarrays[nn]->dcPowerSubarray = Subarrays[nn]->Module->dcPowerW * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
-					if (iyear == 0) mpptVoltageClipping[nn] *= Subarrays[nn]->nModulesPerString* Subarrays[nn]->nStrings;
-
-					// Calculate and apply snow coverage losses if activated
-					if (PVSystem->enableSnowModel)
+					//check for weird results
+					if (out[nn].Voltage > Subarrays[nn]->Module->moduleModel->VocRef()*1.3)
+						log(util::format("Module voltage is unrealistically high (exceeds 1.3*VocRef) at [mdhm: %d %d %d %lg]: %lg V\n", wf.month, wf.day, wf.hour, wf.minute, out[nn].Voltage), SSC_NOTICE);
+					if (!std::isfinite(out[nn].Power))
 					{
-						float smLoss = 0.0f;
-
-						if (Subarrays[nn]->snowModel.getLoss((float)(Subarrays[nn]->poa.poaBeamFront + Subarrays[nn]->poa.poaDiffuseFront + Subarrays[nn]->poa.poaGroundFront),
-							(float)Subarrays[nn]->poa.surfaceTiltDegrees, (float)wf.wspd, (float)wf.tdry, (float)wf.snow, sunup, 1.0f / step_per_hour, smLoss))
-						{
-							if (!Subarrays[nn]->snowModel.good)
-								throw exec_error("pvsamv1", Subarrays[nn]->snowModel.msg);
-						}
-
-						if (iyear == 0)
-						{
-							PVSystem->p_snowLoss[nn][idx] = (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
-							PVSystem->p_snowLossTotal[idx] += (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
-							PVSystem->p_snowCoverage[nn][idx] = (ssc_number_t)(Subarrays[nn]->snowModel.coverage);
-							annual_snow_loss += (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
-							Subarrays[nn]->dcPowerSubarray *= (1 - smLoss);
-						}
-
-						Subarrays[nn]->Module->dcPowerW *= (1 - smLoss);
-						if (iyear == 0) mpptVoltageClipping[nn] *= (1 - smLoss);
+						out[nn].Power = 0;
+						out[nn].Voltage = 0;
+						out[nn].Current = 0;
+						out[nn].Efficiency = 0;
+						out[nn].CellTemp = tcell;
+						log(util::format("Non-finite power output calculated at [mdhm: %d %d %d %lg], set to zero.\n"
+							"could be due to anomolous equation behavior at very low irradiances (poa: %lg W/m2)",
+							wf.month, wf.day, wf.hour, wf.minute, Subarrays[nn]->poa.poaTotal), SSC_NOTICE);
 					}
 
+					// save DC module outputs for this subarray
+					Subarrays[nn]->Module->dcPowerW = out[nn].Power;
+					Subarrays[nn]->Module->dcEfficiency = out[nn].Efficiency * 100;
+					Subarrays[nn]->Module->dcVoltage = out[nn].Voltage;
+					Subarrays[nn]->Module->temperatureCellCelcius = out[nn].CellTemp;
+					Subarrays[nn]->Module->currentShortCircuit = out[nn].Isc_oper;
+					Subarrays[nn]->Module->voltageOpenCircuit = out[nn].Voc_oper;
+					Subarrays[nn]->Module->angleOfIncidenceModifier = out[nn].AOIModifier;
+						
+					// Lifetime dcStringVoltage
+					dcStringVoltage[nn].push_back(Subarrays[nn]->Module->dcVoltage * Subarrays[nn]->nModulesPerString);
 
-					//assign gross outputs per subarray at this point
+					// Output front-side irradiance after the reflection (IAM) loss - needs to be after the module model for now because reflection effects are part of the module model
 					if (iyear == 0)
 					{
-						//Gross DC power
-						dc_gross[nn] += Subarrays[nn]->dcPowerSubarray*util::watt_to_kilowatt*ts_hour; //power W to	energy kWh
-						//PVSystem->p_dcPowerGross[nn][idx] = (ssc_number_t)dc_gross[nn]; // cumulative gross DC power per subarray
-						PVSystem->p_dcPowerGross[nn][idx] = Subarrays[nn]->dcPowerSubarray*util::watt_to_kilowatt; // time series gross DC power per subarray
-						//Add to annual MPPT clipping
-						annualMpptVoltageClipping += mpptVoltageClipping[nn]*util::watt_to_kilowatt*ts_hour; //power W to energy kWh
-						// save to SSC output arrays
-						PVSystem->p_temperatureCell[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->temperatureCellCelcius;
-						PVSystem->p_moduleEfficiency[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->dcEfficiency;					
-						PVSystem->p_voltageOpenCircuit[nn][idx] = (ssc_number_t)(Subarrays[nn]->Module->voltageOpenCircuit * (double)Subarrays[nn]->nModulesPerString);
-						PVSystem->p_currentShortCircuit[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->currentShortCircuit;
-						PVSystem->p_angleOfIncidenceModifier[nn][idx] = (ssc_number_t)(Subarrays[nn]->Module->angleOfIncidenceModifier);
+						ipoa_front[nn] *= out[nn].AOIModifier;
+						PVSystem->p_poaFront[nn][idx] = (radmode == irrad::POA_R) ? (ssc_number_t)ipoa[nn] : (ssc_number_t)(ipoa_front[nn]);
+						PVSystem->p_poaTotal[nn][idx] = (radmode == irrad::POA_R) ? (ssc_number_t)ipoa[nn] : (ssc_number_t)(ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality);
 
+						ts_accum_poa_front_total += ipoa_front[nn] * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+						ts_accum_poa_total_eff += ((radmode == irrad::POA_R) ? ipoa[nn] : (ipoa_front[nn] + ipoa_rear_after_losses[nn] * bifaciality)) * ref_area_m2 * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+
+						//assign final string voltage output
+						PVSystem->p_dcStringVoltage[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->dcVoltage * Subarrays[nn]->nModulesPerString;
 					}
-					
-					//calculate net power for each subarray
+				}
+			}
 
-					// apply pre-inverter power derate
-					dcPowerNetPerSubarray[nn] = Subarrays[nn]->dcPowerSubarray * (1 - Subarrays[nn]->dcLossTotalPercent);
+			// sum up all DC power from the whole array
+			PVSystem->p_systemDCPower[idx] = 0;
+			for (size_t nn = 0; nn < num_subarrays; nn++)
+			{
+				// DC derates for snow and shading must be applied first
+				// these can't be applied before the power calculation because they are POWER derates
 
-					//module degradation and lifetime DC losses apply to all subarrays
-					if (system_use_lifetime_output == 1)
-						dcPowerNetPerSubarray[nn] *= PVSystem->dcDegradationFactor[iyear + 1];
+				// self-shading derate (by default it is 1.0 if disbled)
+				Subarrays[nn]->Module->dcPowerW *= Subarrays[nn]->poa.nonlinearDCShadingDerate;
+				if (iyear == 0) mpptVoltageClipping[nn] *= Subarrays[nn]->poa.nonlinearDCShadingDerate;
 
-					//dc adjustment factors apply to all subarrays
-					if (iyear == 0) annual_dc_adjust_loss += dcPowerNetPerSubarray[nn] * (1 - dc_haf(hour)) * util::watt_to_kilowatt * ts_hour; //only keep track of this loss for year 0, convert from power W to energy kWh
-					dcPowerNetPerSubarray[nn] *= dc_haf(hour);
+				// Sara 1/25/16 - shading database derate applied to dc only
+				// shading loss applied to beam if not from shading database
+				Subarrays[nn]->Module->dcPowerW *= Subarrays[nn]->shadeCalculator.dc_shade_factor();
 
-					//lifetime daily DC losses apply to all subarrays and should be applied last. Only applied if they are enabled.
-					if (system_use_lifetime_output == 1 && PVSystem->enableDCLifetimeLosses)
+				// scale power and mppt voltage clipping to subarray dimensions
+				Subarrays[nn]->dcPowerSubarray = Subarrays[nn]->Module->dcPowerW * Subarrays[nn]->nModulesPerString * Subarrays[nn]->nStrings;
+				if (iyear == 0) mpptVoltageClipping[nn] *= Subarrays[nn]->nModulesPerString* Subarrays[nn]->nStrings;
+
+				// Calculate and apply snow coverage losses if activated
+				if (PVSystem->enableSnowModel)
+				{
+					float smLoss = 0.0f;
+
+					if (Subarrays[nn]->snowModel.getLoss((float)(Subarrays[nn]->poa.poaBeamFront + Subarrays[nn]->poa.poaDiffuseFront + Subarrays[nn]->poa.poaGroundFront),
+						(float)Subarrays[nn]->poa.surfaceTiltDegrees, (float)wf.wspd, (float)wf.tdry, (float)wf.snow, sunup, 1.0f / step_per_hour, smLoss))
 					{
-						//current index of the lifetime daily DC losses is the number of years that have passed (iyear, because it is 0-indexed) * the number of days + the number of complete days that have passed
-						int dc_loss_index = (int)iyear * 365 + (int)floor(hour / 24); //in units of days
-						if (iyear == 0) annual_dc_lifetime_loss += dcPowerNetPerSubarray[nn] * (PVSystem->p_dcLifetimeLosses[dc_loss_index] / 100) * util::watt_to_kilowatt * ts_hour; //this loss is still in percent, only keep track of it for year 0, convert from power W to energy kWh
-						dcPowerNetPerSubarray[nn] *= (100 - PVSystem->p_dcLifetimeLosses[dc_loss_index]) / 100;
+						if (!Subarrays[nn]->snowModel.good)
+							throw exec_error("pvsamv1", Subarrays[nn]->snowModel.msg);
 					}
 
-					//assign net DC power output
-					PVSystem->p_systemDCPower[idx] += (ssc_number_t)(dcPowerNetPerSubarray[nn] * util::watt_to_kilowatt);
+					if (iyear == 0)
+					{
+						PVSystem->p_snowLoss[nn][idx] = (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
+						PVSystem->p_snowLossTotal[idx] += (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
+						PVSystem->p_snowCoverage[nn][idx] = (ssc_number_t)(Subarrays[nn]->snowModel.coverage);
+						annual_snow_loss += (ssc_number_t)(util::watt_to_kilowatt*Subarrays[nn]->dcPowerSubarray*smLoss);
+						Subarrays[nn]->dcPowerSubarray *= (1 - smLoss);
+					}
 
-					//add this subarray's net DC power to the appropriate MPPT input and to the total system DC power
-					PVSystem->p_dcPowerNetPerMppt[Subarrays[nn]->mpptInput - 1][idx] += (ssc_number_t)(dcPowerNetPerSubarray[nn]); //need to subtract 1 from mppt input number because those are 1-indexed
-					dcPowerNetTotalSystem += dcPowerNetPerSubarray[nn];	
-				}								
+					Subarrays[nn]->Module->dcPowerW *= (1 - smLoss);
+					if (iyear == 0) mpptVoltageClipping[nn] *= (1 - smLoss);
+				}
 
-				// save other array-level environmental and irradiance outputs	- year 1 only outputs
+
+				//assign gross outputs per subarray at this point
 				if (iyear == 0)
 				{
-					Irradiance->p_weatherFileWindSpeed[idx] = (ssc_number_t)wf.wspd;
-					Irradiance->p_weatherFileAmbientTemp[idx] = (ssc_number_t)wf.tdry;
-					Irradiance->p_weatherFileAlbedo[idx] = (ssc_number_t)alb;
-					Irradiance->p_weatherFileSnowDepth[idx] = (ssc_number_t)wf.snow;
+					//Gross DC power
+					dc_gross[nn] += Subarrays[nn]->dcPowerSubarray*util::watt_to_kilowatt*ts_hour; //power W to	energy kWh
+					//PVSystem->p_dcPowerGross[nn][idx] = (ssc_number_t)dc_gross[nn]; // cumulative gross DC power per subarray
+					PVSystem->p_dcPowerGross[nn][idx] = Subarrays[nn]->dcPowerSubarray*util::watt_to_kilowatt; // time series gross DC power per subarray
+					//Add to annual MPPT clipping
+					annualMpptVoltageClipping += mpptVoltageClipping[nn]*util::watt_to_kilowatt*ts_hour; //power W to energy kWh
+					// save to SSC output arrays
+					PVSystem->p_temperatureCell[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->temperatureCellCelcius;
+					PVSystem->p_moduleEfficiency[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->dcEfficiency;					
+					PVSystem->p_voltageOpenCircuit[nn][idx] = (ssc_number_t)(Subarrays[nn]->Module->voltageOpenCircuit * (double)Subarrays[nn]->nModulesPerString);
+					PVSystem->p_currentShortCircuit[nn][idx] = (ssc_number_t)Subarrays[nn]->Module->currentShortCircuit;
+					PVSystem->p_angleOfIncidenceModifier[nn][idx] = (ssc_number_t)(Subarrays[nn]->Module->angleOfIncidenceModifier);
 
-					Irradiance->p_sunZenithAngle[idx] = (ssc_number_t)solzen;
-					Irradiance->p_sunAltitudeAngle[idx] = (ssc_number_t)solalt;
-					Irradiance->p_sunAzimuthAngle[idx] = (ssc_number_t)solazi;
-
-					// absolute relative airmass calculation as f(zenith angle, site elevation)
-					Irradiance->p_absoluteAirmass[idx] = sunup > 0 ? (ssc_number_t)(exp(-0.0001184 * hdr.elev) / (cos(solzen*3.1415926 / 180) + 0.5057*pow(96.080 - solzen, -1.634))) : 0.0f;
-					Irradiance->p_sunUpOverHorizon[idx] = (ssc_number_t)sunup;
-
-					// Sum of radiation power on each subarray for the current timestep [kW]
-					PVSystem->p_poaFrontNominalTotal[idx] = (ssc_number_t)(ts_accum_poa_front_nom * util::watt_to_kilowatt); 
-					PVSystem->p_poaFrontBeamNominalTotal[idx] = (ssc_number_t)(ts_accum_poa_front_beam_nom * util::watt_to_kilowatt); 
-					PVSystem->p_poaFrontShadedTotal[idx] = (ssc_number_t)(ts_accum_poa_front_shaded * util::watt_to_kilowatt); 
-					PVSystem->p_poaFrontShadedSoiledTotal[idx] = (ssc_number_t)(ts_accum_poa_front_shaded_soiled * util::watt_to_kilowatt);
-					PVSystem->p_poaFrontTotal[idx] = (ssc_number_t)(ts_accum_poa_front_total * util::watt_to_kilowatt);
-					PVSystem->p_poaRearTotal[idx] = (ssc_number_t)(ts_accum_poa_rear_after_losses * util::watt_to_kilowatt);
-					PVSystem->p_poaTotalAllSubarrays[idx] = (ssc_number_t)(ts_accum_poa_total_eff * util::watt_to_kilowatt); 
-					PVSystem->p_poaFrontBeamTotal[idx] = (ssc_number_t)(ts_accum_poa_front_beam_eff * util::watt_to_kilowatt);
-					PVSystem->p_inverterMPPTLoss[idx] = 0;
-					for (size_t nn = 0; nn < num_subarrays; nn++) {
-						PVSystem->p_inverterMPPTLoss[idx] = (ssc_number_t)(mpptVoltageClipping[nn] * util::watt_to_kilowatt);
-					}
 				}
+					
+				//calculate net power for each subarray
 
-				// Predict clipping for DC battery controller
-				if (en_batt)
+				// apply pre-inverter power derate
+				dcPowerNetPerSubarray[nn] = Subarrays[nn]->dcPowerSubarray * (1 - Subarrays[nn]->dcLossTotalPercent);
+
+				//module degradation and lifetime DC losses apply to all subarrays
+				if (system_use_lifetime_output == 1)
+					dcPowerNetPerSubarray[nn] *= PVSystem->dcDegradationFactor[iyear + 1];
+
+				//dc adjustment factors apply to all subarrays
+				if (iyear == 0) annual_dc_adjust_loss += dcPowerNetPerSubarray[nn] * (1 - dc_haf(hour)) * util::watt_to_kilowatt * ts_hour; //only keep track of this loss for year 0, convert from power W to energy kWh
+				dcPowerNetPerSubarray[nn] *= dc_haf(hour);
+
+				//lifetime daily DC losses apply to all subarrays and should be applied last. Only applied if they are enabled.
+				if (system_use_lifetime_output == 1 && PVSystem->enableDCLifetimeLosses)
 				{
-					double cliploss = 0;
-					double dcpwr_kw = PVSystem->p_systemDCPower[idx];
-
-					if (p_pv_dc_forecast.size() > 1 && p_pv_dc_forecast.size() > idx % (8760 * step_per_hour)) {
-						dcpwr_kw = p_pv_dc_forecast[idx % (8760 * step_per_hour)];
-					}
-					p_pv_dc_use.push_back(static_cast<ssc_number_t>(dcpwr_kw));
-
-					if (p_pv_clipping_forecast.size() > 1 && p_pv_clipping_forecast.size() > idx % (8760 * step_per_hour)) {
-						cliploss = p_pv_clipping_forecast[idx % (8760 * step_per_hour)] * util::kilowatt_to_watt;
-					}
-					else {
-						//DC batteries not allowed with multiple MPPT, so can just use MPPT 1's voltage
-						sharedInverter->calculateACPower(dcpwr_kw, PVSystem->p_mpptVoltage[0][idx], 0.0);
-						cliploss = sharedInverter->powerClipLoss_kW;
-					}
-
-					p_invcliploss_full.push_back(static_cast<ssc_number_t>(cliploss));
+					//current index of the lifetime daily DC losses is the number of years that have passed (iyear, because it is 0-indexed) * the number of days + the number of complete days that have passed
+					int dc_loss_index = (int)iyear * 365 + (int)floor(hour / 24); //in units of days
+					if (iyear == 0) annual_dc_lifetime_loss += dcPowerNetPerSubarray[nn] * (PVSystem->p_dcLifetimeLosses[dc_loss_index] / 100) * util::watt_to_kilowatt * ts_hour; //this loss is still in percent, only keep track of it for year 0, convert from power W to energy kWh
+					dcPowerNetPerSubarray[nn] *= (100 - PVSystem->p_dcLifetimeLosses[dc_loss_index]) / 100;
 				}
 
-				idx++;
+				//assign net DC power output
+				PVSystem->p_systemDCPower[idx] += (ssc_number_t)(dcPowerNetPerSubarray[nn] * util::watt_to_kilowatt);
+
+				//add this subarray's net DC power to the appropriate MPPT input and to the total system DC power
+				PVSystem->p_dcPowerNetPerMppt[Subarrays[nn]->mpptInput - 1][idx] += (ssc_number_t)(dcPowerNetPerSubarray[nn]); //need to subtract 1 from mppt input number because those are 1-indexed
+				dcPowerNetTotalSystem += dcPowerNetPerSubarray[nn];	
+			}								
+
+			// save other array-level environmental and irradiance outputs	- year 1 only outputs
+			if (iyear == 0)
+			{
+				Irradiance->p_weatherFileWindSpeed[idx] = (ssc_number_t)wf.wspd;
+				Irradiance->p_weatherFileAmbientTemp[idx] = (ssc_number_t)wf.tdry;
+				Irradiance->p_weatherFileAlbedo[idx] = (ssc_number_t)alb;
+				Irradiance->p_weatherFileSnowDepth[idx] = (ssc_number_t)wf.snow;
+
+				Irradiance->p_sunZenithAngle[idx] = (ssc_number_t)solzen;
+				Irradiance->p_sunAltitudeAngle[idx] = (ssc_number_t)solalt;
+				Irradiance->p_sunAzimuthAngle[idx] = (ssc_number_t)solazi;
+
+				// absolute relative airmass calculation as f(zenith angle, site elevation)
+				Irradiance->p_absoluteAirmass[idx] = sunup > 0 ? (ssc_number_t)(exp(-0.0001184 * hdr.elev) / (cos(solzen*3.1415926 / 180) + 0.5057*pow(96.080 - solzen, -1.634))) : 0.0f;
+				Irradiance->p_sunUpOverHorizon[idx] = (ssc_number_t)sunup;
+
+				// Sum of radiation power on each subarray for the current timestep [kW]
+				PVSystem->p_poaFrontNominalTotal[idx] = (ssc_number_t)(ts_accum_poa_front_nom * util::watt_to_kilowatt); 
+				PVSystem->p_poaFrontBeamNominalTotal[idx] = (ssc_number_t)(ts_accum_poa_front_beam_nom * util::watt_to_kilowatt); 
+				PVSystem->p_poaFrontShadedTotal[idx] = (ssc_number_t)(ts_accum_poa_front_shaded * util::watt_to_kilowatt); 
+				PVSystem->p_poaFrontShadedSoiledTotal[idx] = (ssc_number_t)(ts_accum_poa_front_shaded_soiled * util::watt_to_kilowatt);
+				PVSystem->p_poaFrontTotal[idx] = (ssc_number_t)(ts_accum_poa_front_total * util::watt_to_kilowatt);
+				PVSystem->p_poaRearTotal[idx] = (ssc_number_t)(ts_accum_poa_rear_after_losses * util::watt_to_kilowatt);
+				PVSystem->p_poaTotalAllSubarrays[idx] = (ssc_number_t)(ts_accum_poa_total_eff * util::watt_to_kilowatt); 
+				PVSystem->p_poaFrontBeamTotal[idx] = (ssc_number_t)(ts_accum_poa_front_beam_eff * util::watt_to_kilowatt);
+				PVSystem->p_inverterMPPTLoss[idx] = 0;
+				for (size_t nn = 0; nn < num_subarrays; nn++) {
+					PVSystem->p_inverterMPPTLoss[idx] = (ssc_number_t)(mpptVoltageClipping[nn] * util::watt_to_kilowatt);
+				}
 			}
+
+			// Predict clipping for DC battery controller
+			if (en_batt)
+			{
+				double cliploss = 0;
+				double dcpwr_kw = PVSystem->p_systemDCPower[idx];
+
+				if (p_pv_dc_forecast.size() > 1 && p_pv_dc_forecast.size() > idx % (8760 * step_per_hour)) {
+					dcpwr_kw = p_pv_dc_forecast[idx % (8760 * step_per_hour)];
+				}
+				p_pv_dc_use.push_back(static_cast<ssc_number_t>(dcpwr_kw));
+
+				if (p_pv_clipping_forecast.size() > 1 && p_pv_clipping_forecast.size() > idx % (8760 * step_per_hour)) {
+					cliploss = p_pv_clipping_forecast[idx % (8760 * step_per_hour)] * util::kilowatt_to_watt;
+				}
+				else {
+					//DC batteries not allowed with multiple MPPT, so can just use MPPT 1's voltage
+					sharedInverter->calculateACPower(dcpwr_kw, PVSystem->p_mpptVoltage[0][idx], 0.0);
+					cliploss = sharedInverter->powerClipLoss_kW;
+				}
+
+				p_invcliploss_full.push_back(static_cast<ssc_number_t>(cliploss));
+			}
+
+			idx++;
 		}
 		// using single weather file initially - so rewind to use for next year
 		wdprov->rewind();
@@ -1932,7 +1932,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 
 	for (size_t iyear = 0; iyear < nyears; iyear++)
 	{
-		for (hour = 0; hour < 8760; hour++)
+		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
 		{
 			// report progress updates to the caller	
 			ireport++;
@@ -1944,111 +1944,108 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				ireplast = ireport;
 			}
 
-			for (size_t jj = 0; jj < step_per_hour; jj++)
+			double dcPower_kW = PVSystem->p_systemDCPower[idx];
+
+			// Battery replacement
+			if (en_batt && (batt_topology == ChargeController::DC_CONNECTED))
 			{
-				double dcPower_kW = PVSystem->p_systemDCPower[idx];
-
-				// Battery replacement
-				if (en_batt && (batt_topology == ChargeController::DC_CONNECTED))
-				{
-					batt.initialize_time(iyear, hour, jj);
-					batt.check_replacement_schedule();
-				}
-
-				double acpwr_gross = 0, ac_wiringloss = 0, transmissionloss = 0;
-				cur_load = p_load_full[idx];
-				wdprov->read(&Irradiance->weatherRecord);
-				weather_record wf = Irradiance->weatherRecord;
-
-				//set DC voltages for use in AC power calculation
-				for (size_t m = 0; m < PVSystem->Inverter->nMpptInputs; m++)
-				{
-					dcVoltagePerMppt[m] = PVSystem->p_mpptVoltage[m][idx];
-					dcPowerNetPerMppt_kW[m] = PVSystem->p_dcPowerNetPerMppt[m][idx] * util::watt_to_kilowatt;
-				}
-
-				//run AC power calculation
-				if (en_batt && (batt_topology == ChargeController::DC_CONNECTED)) // DC-connected battery
-				{
-					// Compute PV clipping before adding battery
-					sharedInverter->calculateACPower(dcPower_kW, dcVoltagePerMppt[0], wf.tdry); //DC batteries not allowed with multiple MPPT, so can just use MPPT 1's voltage
-
-					// Run PV plus battery through sharedInverter, returns AC power
-					batt.advance(*this, dcPower_kW, dcVoltagePerMppt[0], cur_load, sharedInverter->powerClipLoss_kW);
-					acpwr_gross = batt.outGenPower[idx];
-				}
-				else if (PVSystem->Inverter->inverterType == INVERTER_PVYIELD) //PVyield inverter model not currently enabled for multiple MPPT
-				{
-					sharedInverter->calculateACPower(dcPower_kW, dcVoltagePerMppt[0], wf.tdry);
-					acpwr_gross = sharedInverter->powerAC_kW;
-				}
-				else
-				{
-					// inverter: runs at all hours of the day, even if no DC power.  important
-					// for capturing tare losses
-					sharedInverter->calculateACPower(dcPowerNetPerMppt_kW, dcVoltagePerMppt, wf.tdry);
-					acpwr_gross = sharedInverter->powerAC_kW;
-				}		
-				
-				ac_wiringloss = fabs(acpwr_gross) * PVSystem->acLossPercent * 0.01;
-				transmissionloss = fabs(acpwr_gross) * PVSystem->transmissionLossPercent * 0.01;
-
-				// accumulate first year annual energy
-				if (iyear == 0)
-				{ 
-					annual_ac_gross += acpwr_gross * ts_hour;
-
-					annual_dc_loss_ond += sharedInverter->dcWiringLoss_ond_kW * ts_hour; // (TR)
-					annual_ac_loss_ond += sharedInverter->dcWiringLoss_ond_kW *  ts_hour; // (TR)
-
-					PVSystem->p_inverterEfficiency[idx] = (ssc_number_t)(sharedInverter->efficiencyAC);
-					PVSystem->p_inverterClipLoss[idx] = (ssc_number_t)(sharedInverter->powerClipLoss_kW);
-					PVSystem->p_inverterPowerConsumptionLoss[idx] = (ssc_number_t)(sharedInverter->powerConsumptionLoss_kW);
-					PVSystem->p_inverterNightTimeLoss[idx] = (ssc_number_t)(sharedInverter->powerNightLoss_kW);
-					PVSystem->p_inverterThermalLoss[idx] = (ssc_number_t)(sharedInverter->powerTempLoss_kW);
-					PVSystem->p_acWiringLoss[idx] = (ssc_number_t)(ac_wiringloss);
-					PVSystem->p_transmissionLoss[idx] = (ssc_number_t)(transmissionloss);
-					PVSystem->p_inverterTotalLoss[idx] = (ssc_number_t)(sharedInverter->powerLossTotal_kW);
-				}
-				PVSystem->p_systemDCPower[idx] = (ssc_number_t)(sharedInverter->powerDC_kW);
-
-				//ac losses should always be subtracted, this means you can't just multiply by the derate because at nighttime it will add power
-				PVSystem->p_systemACPower[idx] = (ssc_number_t)(acpwr_gross - ac_wiringloss);
-
-				// Apply transformer loss
-				ssc_number_t transformerRatingkW = static_cast<ssc_number_t>(PVSystem->ratedACOutput * util::watt_to_kilowatt);
-				ssc_number_t xfmr_ll = PVSystem->transformerLoadLossFraction;
-				ssc_number_t xfmr_nll = PVSystem->transformerNoLoadLossFraction * static_cast<ssc_number_t>(ts_hour * transformerRatingkW);
-
-				if (PVSystem->transformerLoadLossFraction != 0 && transformerRatingkW != 0)
-				{
-					if (PVSystem->p_systemACPower[idx] < transformerRatingkW)
-						xfmr_ll *= PVSystem->p_systemACPower[idx] * PVSystem->p_systemACPower[idx] / transformerRatingkW;
-					else 
-						xfmr_ll *= PVSystem->p_systemACPower[idx];
-				} 
-				// total load loss
-				ssc_number_t xfmr_loss = xfmr_ll + xfmr_nll;
-				PVSystem->p_systemACPower[idx] -= xfmr_loss;
-
-				// transmission loss if AC power is produced
-				if (PVSystem->p_systemACPower[idx] > 0){
-					PVSystem->p_systemACPower[idx] -= (ssc_number_t)(transmissionloss);
-				}
-
-				// accumulate first year annual energy
-				if (iyear == 0)
-				{
-					annual_xfmr_nll += PVSystem->transformerNoLoadLossFraction;
-					annual_xfmr_ll += xfmr_ll;
-					annual_xfmr_loss += xfmr_loss;
-					PVSystem->p_transformerNoLoadLoss[idx] = PVSystem->transformerNoLoadLossFraction;
-					PVSystem->p_transformerLoadLoss[idx] = xfmr_ll;
-					PVSystem->p_transformerLoss[idx] = xfmr_loss;
-				}
-
-				idx++;
+				batt.initialize_time(iyear, hour, jj);
+				batt.check_replacement_schedule();
 			}
+
+			double acpwr_gross = 0, ac_wiringloss = 0, transmissionloss = 0;
+			cur_load = p_load_full[idx];
+			wdprov->read(&Irradiance->weatherRecord);
+			weather_record wf = Irradiance->weatherRecord;
+
+			//set DC voltages for use in AC power calculation
+			for (size_t m = 0; m < PVSystem->Inverter->nMpptInputs; m++)
+			{
+				dcVoltagePerMppt[m] = PVSystem->p_mpptVoltage[m][idx];
+				dcPowerNetPerMppt_kW[m] = PVSystem->p_dcPowerNetPerMppt[m][idx] * util::watt_to_kilowatt;
+			}
+
+			//run AC power calculation
+			if (en_batt && (batt_topology == ChargeController::DC_CONNECTED)) // DC-connected battery
+			{
+				// Compute PV clipping before adding battery
+				sharedInverter->calculateACPower(dcPower_kW, dcVoltagePerMppt[0], wf.tdry); //DC batteries not allowed with multiple MPPT, so can just use MPPT 1's voltage
+
+				// Run PV plus battery through sharedInverter, returns AC power
+				batt.advance(*this, dcPower_kW, dcVoltagePerMppt[0], cur_load, sharedInverter->powerClipLoss_kW);
+				acpwr_gross = batt.outGenPower[idx];
+			}
+			else if (PVSystem->Inverter->inverterType == INVERTER_PVYIELD) //PVyield inverter model not currently enabled for multiple MPPT
+			{
+				sharedInverter->calculateACPower(dcPower_kW, dcVoltagePerMppt[0], wf.tdry);
+				acpwr_gross = sharedInverter->powerAC_kW;
+			}
+			else
+			{
+				// inverter: runs at all hours of the day, even if no DC power.  important
+				// for capturing tare losses
+				sharedInverter->calculateACPower(dcPowerNetPerMppt_kW, dcVoltagePerMppt, wf.tdry);
+				acpwr_gross = sharedInverter->powerAC_kW;
+			}		
+				
+			ac_wiringloss = fabs(acpwr_gross) * PVSystem->acLossPercent * 0.01;
+			transmissionloss = fabs(acpwr_gross) * PVSystem->transmissionLossPercent * 0.01;
+
+			// accumulate first year annual energy
+			if (iyear == 0)
+			{ 
+				annual_ac_gross += acpwr_gross * ts_hour;
+
+				annual_dc_loss_ond += sharedInverter->dcWiringLoss_ond_kW * ts_hour; // (TR)
+				annual_ac_loss_ond += sharedInverter->dcWiringLoss_ond_kW *  ts_hour; // (TR)
+
+				PVSystem->p_inverterEfficiency[idx] = (ssc_number_t)(sharedInverter->efficiencyAC);
+				PVSystem->p_inverterClipLoss[idx] = (ssc_number_t)(sharedInverter->powerClipLoss_kW);
+				PVSystem->p_inverterPowerConsumptionLoss[idx] = (ssc_number_t)(sharedInverter->powerConsumptionLoss_kW);
+				PVSystem->p_inverterNightTimeLoss[idx] = (ssc_number_t)(sharedInverter->powerNightLoss_kW);
+				PVSystem->p_inverterThermalLoss[idx] = (ssc_number_t)(sharedInverter->powerTempLoss_kW);
+				PVSystem->p_acWiringLoss[idx] = (ssc_number_t)(ac_wiringloss);
+				PVSystem->p_transmissionLoss[idx] = (ssc_number_t)(transmissionloss);
+				PVSystem->p_inverterTotalLoss[idx] = (ssc_number_t)(sharedInverter->powerLossTotal_kW);
+			}
+			PVSystem->p_systemDCPower[idx] = (ssc_number_t)(sharedInverter->powerDC_kW);
+
+			//ac losses should always be subtracted, this means you can't just multiply by the derate because at nighttime it will add power
+			PVSystem->p_systemACPower[idx] = (ssc_number_t)(acpwr_gross - ac_wiringloss);
+
+			// Apply transformer loss
+			ssc_number_t transformerRatingkW = static_cast<ssc_number_t>(PVSystem->ratedACOutput * util::watt_to_kilowatt);
+			ssc_number_t xfmr_ll = PVSystem->transformerLoadLossFraction;
+			ssc_number_t xfmr_nll = PVSystem->transformerNoLoadLossFraction * static_cast<ssc_number_t>(ts_hour * transformerRatingkW);
+
+			if (PVSystem->transformerLoadLossFraction != 0 && transformerRatingkW != 0)
+			{
+				if (PVSystem->p_systemACPower[idx] < transformerRatingkW)
+					xfmr_ll *= PVSystem->p_systemACPower[idx] * PVSystem->p_systemACPower[idx] / transformerRatingkW;
+				else 
+					xfmr_ll *= PVSystem->p_systemACPower[idx];
+			} 
+			// total load loss
+			ssc_number_t xfmr_loss = xfmr_ll + xfmr_nll;
+			PVSystem->p_systemACPower[idx] -= xfmr_loss;
+
+			// transmission loss if AC power is produced
+			if (PVSystem->p_systemACPower[idx] > 0){
+				PVSystem->p_systemACPower[idx] -= (ssc_number_t)(transmissionloss);
+			}
+
+			// accumulate first year annual energy
+			if (iyear == 0)
+			{
+				annual_xfmr_nll += PVSystem->transformerNoLoadLossFraction;
+				annual_xfmr_ll += xfmr_ll;
+				annual_xfmr_loss += xfmr_loss;
+				PVSystem->p_transformerNoLoadLoss[idx] = PVSystem->transformerNoLoadLossFraction;
+				PVSystem->p_transformerLoadLoss[idx] = xfmr_ll;
+				PVSystem->p_transformerLoss[idx] = xfmr_loss;
+			}
+
+			idx++;
 		}
 
 		if (iyear == 0)
@@ -2075,7 +2072,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	double annual_energy_pre_battery = 0.; 
 	for (size_t iyear = 0; iyear < nyears; iyear++)
 	{
-		for (hour = 0; hour < 8760; hour++)
+		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
 		{
 			// report progress updates to the caller	
 			ireport++;
@@ -2087,44 +2084,41 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				ireplast = ireport;
 			}
 
-			for (size_t jj = 0; jj < step_per_hour; jj++)
+			if (iyear == 0)
+				annual_energy_pre_battery += PVSystem->p_systemACPower[idx] * ts_hour;
+
+			if (en_batt && batt_topology == ChargeController::AC_CONNECTED)
 			{
-				if (iyear == 0)
-					annual_energy_pre_battery += PVSystem->p_systemACPower[idx] * ts_hour;
+				batt.initialize_time(iyear, hour, jj);
+				batt.check_replacement_schedule();
+				batt.advance(*this, PVSystem->p_systemACPower[idx], 0, p_load_full[idx]);
+				PVSystem->p_systemACPower[idx] = batt.outGenPower[idx];
+			}
 
-				if (en_batt && batt_topology == ChargeController::AC_CONNECTED)
-				{
-					batt.initialize_time(iyear, hour, jj);
-					batt.check_replacement_schedule();
-					batt.advance(*this, PVSystem->p_systemACPower[idx], 0, p_load_full[idx]);
-					PVSystem->p_systemACPower[idx] = batt.outGenPower[idx];
-				}
-
-				// accumulate system generation before curtailment and availability
-				if (iyear == 0)
-					annual_ac_pre_avail += PVSystem->p_systemACPower[idx] * ts_hour;
+			// accumulate system generation before curtailment and availability
+			if (iyear == 0)
+				annual_ac_pre_avail += PVSystem->p_systemACPower[idx] * ts_hour;
 		
 
-				//apply availability and curtailment
-				PVSystem->p_systemACPower[idx] *= haf(hour);
+			//apply availability and curtailment
+			PVSystem->p_systemACPower[idx] *= haf(hour);
 
-				//apply lifetime daily AC losses only if they are enabled
-				if (system_use_lifetime_output && PVSystem->enableACLifetimeLosses)
-				{
-					//current index of the lifetime daily AC losses is the number of years that have passed (iyear, because it is 0-indexed) * days in a year + the number of complete days that have passed
-					int ac_loss_index = (int)iyear * 365 + (int)floor(hour / 24); //in units of days
-					if (iyear == 0) annual_ac_lifetime_loss += PVSystem->p_systemACPower[idx] * (PVSystem->p_acLifetimeLosses[ac_loss_index] / 100) * util::watt_to_kilowatt * ts_hour; //this loss is still in percent, only keep track of it for year 0, convert from power W to energy kWh
-					PVSystem->p_systemACPower[idx] *= (100 - PVSystem->p_acLifetimeLosses[ac_loss_index]) / 100;
-				}
-				// Update battery with final gen to compute grid power
-				if (en_batt)
-					batt.update_grid_power(*this, PVSystem->p_systemACPower[idx], p_load_full[idx], idx);
-
-				if (iyear == 0)
-					annual_energy += (ssc_number_t)(PVSystem->p_systemACPower[idx] * ts_hour);
-
-				idx++;
+			//apply lifetime daily AC losses only if they are enabled
+			if (system_use_lifetime_output && PVSystem->enableACLifetimeLosses)
+			{
+				//current index of the lifetime daily AC losses is the number of years that have passed (iyear, because it is 0-indexed) * days in a year + the number of complete days that have passed
+				int ac_loss_index = (int)iyear * 365 + (int)floor(hour / 24); //in units of days
+				if (iyear == 0) annual_ac_lifetime_loss += PVSystem->p_systemACPower[idx] * (PVSystem->p_acLifetimeLosses[ac_loss_index] / 100) * util::watt_to_kilowatt * ts_hour; //this loss is still in percent, only keep track of it for year 0, convert from power W to energy kWh
+				PVSystem->p_systemACPower[idx] *= (100 - PVSystem->p_acLifetimeLosses[ac_loss_index]) / 100;
 			}
+			// Update battery with final gen to compute grid power
+			if (en_batt)
+				batt.update_grid_power(*this, PVSystem->p_systemACPower[idx], p_load_full[idx], idx);
+
+			if (iyear == 0)
+				annual_energy += (ssc_number_t)(PVSystem->p_systemACPower[idx] * ts_hour);
+
+			idx++;
 		} 
 
 	} 
