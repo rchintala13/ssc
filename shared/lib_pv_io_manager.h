@@ -227,6 +227,7 @@ struct Simulation_IO
 	size_t stepsPerHour;
 	double dtHour; //fraction of an hour in a given timestep, e.g. for 15-minute data, ts_hour would be 0.25
 	flag useLifetimeOutput;
+	flag annualSimulation; //flag to determine if the simulation is a normal, annual simulation with a single continuous year, or a non-annual/single timestep simulation
 };
 
 /***
