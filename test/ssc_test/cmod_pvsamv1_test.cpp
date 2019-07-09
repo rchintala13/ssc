@@ -523,7 +523,7 @@ TEST_F(CMPvsamv1PowerIntegration, NoFinancialModelLosses)
 /// Change half of all temperatures so that inv eff is derated by ~50% for half the year
 /// DC production & inverter efficiency both decrease as result
 TEST_F(CMPvsamv1PowerIntegration, InvTempDerate) {
-	var_data* weatherData = create_weatherdata_array(1);
+	var_data* weatherData = create_weatherdata_array(8760, 1);
 	ssc_data_unassign(data, "solar_resource_file");
 	var_table *vt = static_cast<var_table*>(data);
 	
@@ -603,4 +603,32 @@ TEST_F(CMPvsamv1PowerIntegration, SnowModel)
 	ssc_data_get_number(data, "annual_energy", &annual_energy);
 	EXPECT_NEAR(annual_energy, 11354.7, m_error_tolerance_hi) << "Annual energy.";
 
+}
+
+TEST_F(CMPvsamv1PowerIntegration, SingleTimestep)
+{
+	//set up a weather data array and unassign the solar resource file
+	var_data* weatherData = create_weatherdata_array(1, 1);
+	ssc_data_unassign(data, "solar_resource_file");
+
+	//add a minute column
+	double* minute = new double[1];
+	minute[0] = 1;
+	var_data minute_vd = var_data(minute, 1);
+	weatherData->table.assign("minute", minute_vd);
+
+	//re-assign the weather data array
+	var_table *vt = static_cast<var_table*>(data);
+	vt->assign("solar_resource_data", *weatherData);
+
+	//run the tests
+	EXPECT_FALSE(run_module(data, "pvsamv1"));
+
+	ssc_number_t dc_net, gen;
+
+	ssc_data_get_number(data, "dc_net", &dc_net);
+	EXPECT_NEAR(dc_net, 3540, 1) << "DC Net Energy";
+
+	ssc_data_get_number(data, "gen", &gen);
+	EXPECT_NEAR(gen, 3540, 1) << "Gen";
 }
