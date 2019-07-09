@@ -645,16 +645,38 @@ bool shading_factor_calculator::use_shade_db()
 size_t shading_factor_calculator::get_row_index_for_input(size_t hour, size_t hour_step, size_t steps_per_hour)
 {
 	// handle different simulation timesteps and shading input timesteps
-	size_t ndx = hour * m_steps_per_hour; // m_beam row index for input hour
+	size_t ndx = hour * (size_t)m_steps_per_hour; // m_beam row index for input hour
 	int hr_step = 0;
 	if (steps_per_hour > 0)
 		hr_step = (int)((int)m_steps_per_hour*(int)hour_step/ (int)steps_per_hour);
 	if (hr_step >= m_steps_per_hour) hr_step = m_steps_per_hour - 1;
 	if (hr_step < 0) hr_step = 0;
-	ndx += hr_step;
+	ndx += (size_t)hr_step;
 	return ndx;
 }
 
+
+size_t shading_factor_calculator::get_row_index_for_input(size_t month, size_t day, size_t hour, size_t minute)
+{
+	// assume weather file timestamp m,d,h,m
+	// translate to fbeam user input with 8760 * m_steps_per_hour
+	int day_of_year = (int)day; 
+	for (int i = 0; i < (int)month && i<12; i++)
+		day_of_year += util::days_in_month(i);
+	if (day_of_year < 0) day_of_year = 0;
+	if (day_of_year > 364) day_of_year = 364; // leap year has 366 days, we consider only 365 days for 8760 hours total
+	int hour_of_year = day_of_year * 24 + (int)hour;
+	if (hour_of_year < 0) hour_of_year = 0;
+	if (hour_of_year > 8760) hour_of_year = 8760;
+	size_t ndx = hour * (size_t)m_steps_per_hour; // m_beam row index for input hour
+	int hr_step = (int)(m_steps_per_hour*(int)minute / 60);
+	if (hr_step >= m_steps_per_hour) hr_step = m_steps_per_hour - 1;
+	if (hr_step < 0) hr_step = 0;
+	ndx += (size_t)hr_step;
+	return ndx;
+}
+
+/*
 bool shading_factor_calculator::fbeam(size_t hour, double solalt, double solazi, size_t hour_step, size_t steps_per_hour)
 {
 	bool ok = false;
@@ -676,14 +698,63 @@ bool shading_factor_calculator::fbeam(size_t hour, double solalt, double solazi,
 	}
 	return ok;
 }
+*/
 
+bool shading_factor_calculator::fbeam(double solalt, double solazi, size_t month, size_t day, size_t hour, size_t minute)
+{
+	bool ok = false;
+	double factor = 1.0;
+	size_t irow = get_row_index_for_input(month, day, hour, minute);
+	if (irow < m_beamFactors.nrows())
+	{
+		factor = m_beamFactors.at(irow, 0);
+		// apply mxh factor
+		if (m_enMxH && (irow < m_mxhFactors.nrows()))
+			factor *= m_mxhFactors(irow, 0);
+		// apply azi alt shading factor
+		if (m_enAzAlt)
+			factor *= util::bilinear(solalt, solazi, m_azaltvals);
 
+		m_beam_shade_factor = factor;
+
+		ok = true;
+	}
+	return ok;
+}
+/*
 bool shading_factor_calculator::fbeam_shade_db(ShadeDB8_mpp * p_shadedb, size_t hour, double solalt, double solazi, size_t hour_step, size_t steps_per_hour, double gpoa, double dpoa, double pv_cell_temp, int mods_per_str, double str_vmp_stc, double mppt_lo, double mppt_hi)
 {
 	bool ok = false;
 	double dc_factor = 1.0;
 	double beam_factor = 1.0;
 	size_t irow = get_row_index_for_input(hour, hour_step, steps_per_hour);
+	if (irow < m_beamFactors.nrows())
+	{
+		std::vector<double> shad_fracs;
+		for (size_t icol = 0; icol < m_beamFactors.ncols(); icol++)
+			shad_fracs.push_back(m_beamFactors.at(irow, icol));
+		dc_factor = 1.0 - p_shadedb->get_shade_loss(gpoa, dpoa, shad_fracs, true, pv_cell_temp, mods_per_str, str_vmp_stc, mppt_lo, mppt_hi);
+		// apply mxh factor
+		if (m_enMxH && (irow < m_mxhFactors.nrows()))
+			beam_factor *= m_mxhFactors(irow, 0);
+		// apply azi alt shading factor
+		if (m_enAzAlt)
+			beam_factor *= util::bilinear(solalt, solazi, m_azaltvals);
+
+		m_dc_shade_factor = dc_factor;
+		m_beam_shade_factor = beam_factor;
+
+		ok = true;
+	}
+	return ok;
+}
+*/
+bool shading_factor_calculator::fbeam_shade_db(ShadeDB8_mpp * p_shadedb, double solalt, double solazi, size_t month, size_t day, size_t hour, size_t minute, double gpoa, double dpoa, double pv_cell_temp, int mods_per_str, double str_vmp_stc, double mppt_lo, double mppt_hi)
+{
+	bool ok = false;
+	double dc_factor = 1.0;
+	double beam_factor = 1.0;
+	size_t irow = get_row_index_for_input(month, day, hour, minute);
 	if (irow < m_beamFactors.nrows())
 	{
 		std::vector<double> shad_fracs;

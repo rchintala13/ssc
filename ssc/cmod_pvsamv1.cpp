@@ -1089,11 +1089,14 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	}
 
 	//for normal annual simulations, this works as expected. for non-annual weather data inputs, nyears is 1, so iyear will always be 0, meaning that timeseries outputs will be output for the entire nrec length.
-	for (size_t iyear = 0; iyear < nyears; iyear++) 
-	{
-		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
-		{
 
+
+
+	for(size_t iyear=0; iyear < nyears; iyear++)
+	{
+		for (int nrec_idx=0; nrec_idx < (int)nrec; nrec_idx++)
+		{
+	
 			if (!wdprov->read(&Irradiance->weatherRecord))
 				throw exec_error("pvsamv1", "could not read data line " + util::to_string((int)(idx + 1)) + " in weather file");
 
@@ -1342,7 +1345,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 					double shadedb_mppt_hi = PVSystem->Inverter->mpptHiVoltage;
 						 
 					// shading database if necessary
-					if (!Subarrays[nn]->shadeCalculator.fbeam_shade_db(shadeDatabase, hour, solalt, solazi, jj, step_per_hour, shadedb_gpoa, shadedb_dpoa, tcell, Subarrays[nn]->nModulesPerString, shadedb_str_vmp_stc, shadedb_mppt_lo, shadedb_mppt_hi))
+					if (!Subarrays[nn]->shadeCalculator.fbeam_shade_db(shadeDatabase, solalt, solazi, wf.month, wf.day, wf.hour, wf.minute, shadedb_gpoa, shadedb_dpoa, tcell, Subarrays[nn]->nModulesPerString, shadedb_str_vmp_stc, shadedb_mppt_lo, shadedb_mppt_hi))
 					{
 						throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
 					}
@@ -1364,7 +1367,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 				}
 				else
 				{
-					if (!Subarrays[nn]->shadeCalculator.fbeam(hour, solalt, solazi, jj, step_per_hour))
+					if (!Subarrays[nn]->shadeCalculator.fbeam(solalt, solazi, wf.month, wf.day, wf.hour, wf.minute))
 					{
 						throw exec_error("pvsamv1", util::format("Error calculating shading factor for subarray %d", nn));
 					}
@@ -1933,7 +1936,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 
 	for (size_t iyear = 0; iyear < nyears; iyear++)
 	{
-		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
+		for (int nrec_idx = 0; nrec_idx < (int)nrec; nrec_idx++)
 		{
 
 			if (!wdprov->read(&Irradiance->weatherRecord))
@@ -2081,7 +2084,7 @@ void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 	double annual_energy_pre_battery = 0.; 
 	for (size_t iyear = 0; iyear < nyears; iyear++)
 	{
-		for (int nrec_idx = 0; nrec_idx < nrec; nrec_idx++)
+		for (int nrec_idx = 0; nrec_idx < (int)nrec; nrec_idx++)
 		{
 
 			if (!wdprov->read(&Irradiance->weatherRecord))
