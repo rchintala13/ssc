@@ -627,8 +627,8 @@ TEST_F(CMPvsamv1PowerIntegration, SingleTimestep)
 	ssc_number_t dc_net, gen;
 
 	ssc_data_get_number(data, "dc_net", &dc_net);
-	EXPECT_NEAR(dc_net, 3540, 1) << "DC Net Energy";
+	EXPECT_NEAR(dc_net, 0, 1) << "DC Net Energy";
 
 	ssc_data_get_number(data, "gen", &gen);
-	EXPECT_NEAR(gen, 3540, 1) << "Gen";
+	EXPECT_NEAR(gen, 0, 1) << "Gen";
 }
