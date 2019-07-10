@@ -138,7 +138,9 @@ Irradiance_IO::Irradiance_IO(compute_module* cm, std::string cmName)
 	numberOfWeatherFileRecords = weatherDataProvider->nrecords();
 
 	stepsPerHour = numberOfWeatherFileRecords / 8760;
-	dtHour = 1.0 / stepsPerHour;
+	dtHour = 1.0;
+	if (stepsPerHour > 0)
+		dtHour /= stepsPerHour;
 
 	if (weatherDataProvider->annualSimulation() && numberOfWeatherFileRecords % 8760 != 0 )
 		throw compute_module::exec_error(cmName, util::format("invalid number of data records (%zu): must be an integer multiple of 8760", numberOfWeatherFileRecords));

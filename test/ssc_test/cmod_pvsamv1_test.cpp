@@ -4,6 +4,10 @@
 #include "../input_cases/pvsamv1_cases.h"
 #include "../input_cases/weather_inputs.h"
 
+using std::cout;
+using std::endl;
+
+
 /// Test PVSAMv1 with all defaults and no-financial model
 TEST_F(CMPvsamv1PowerIntegration, DefaultNoFinancialModel){
 	
@@ -625,10 +629,32 @@ TEST_F(CMPvsamv1PowerIntegration, SingleTimestep)
 	EXPECT_FALSE(run_module(data, "pvsamv1"));
 
 	ssc_number_t dc_net, gen;
-
-	ssc_data_get_number(data, "dc_net", &dc_net);
-	EXPECT_NEAR(dc_net, 0, 1) << "DC Net Energy";
-
-	ssc_data_get_number(data, "gen", &gen);
+	int sz;
+	ssc_number_t *ary = ssc_data_get_array(data, "dc_net", &sz);
+	dc_net = 0;
+	for (int i = 0; i < sz; i++)
+		dc_net += ary[i];
+	cout << " sum dc_net energy : " << dc_net << endl;
+	EXPECT_NEAR(dc_net, 0, 1) << "Sum DC Net Energy";
+	ssc_data_get_number(data, "annual_dc_net", &dc_net);
+	cout << " annual dc_net energy : " << dc_net << endl;
+	EXPECT_NEAR(dc_net, 0, 1) << "Annual DC Net Energy";
+	ssc_data_get_number(data, "annual_dc_gross", &dc_net);
+	cout << " annual dc_gross energy : " << dc_net << endl;
+	EXPECT_NEAR(dc_net, 0, 1) << "Annual DC Gross Energy";
+	ssc_data_get_number(data, "annual_dc_nominal", &dc_net);
+	cout << " annual dc_nominal energy : " << dc_net << endl;
+	EXPECT_NEAR(dc_net, 0, 1) << "Annual DC Nominal Energy";
+	ary = ssc_data_get_array(data, "gen", &sz);
+	gen = 0;
+	for (int i = 0; i < sz; i++)
+		gen += ary[i];
+	cout << " sum gen energy : " << gen << endl;
 	EXPECT_NEAR(gen, 0, 1) << "Gen";
+	ssc_data_get_number(data, "annual_energy", &gen);
+	cout << " annual energy : " << gen << endl;
+	EXPECT_NEAR(gen, 0, 1) << "Annual Energy";
+	ssc_data_get_number(data, "annual_ac_gross", &gen);
+	cout << " annual ac_gross energy : " << gen << endl;
+	EXPECT_NEAR(gen, 0, 1) << "Annual AC Gross Energy";
 }
