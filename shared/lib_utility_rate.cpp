@@ -83,16 +83,16 @@ bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 						unit_lc.push_back(std::tolower(unit[i], loc));
 					}
 					//std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
-					if (unit == "kwh") {
+					if (unit_lc == "kwh") {
 						iunit = 0;
 					}
-					else if (unit == "kwh/kw") {
+					else if (unit_lc == "kwh/kw") {
 						iunit = 1;
 					}
-					else if (unit == "kwh daily") {
+					else if (unit_lc == "kwh daily") {
 						iunit = 2;
 					}
-					else if (unit == "kwh/kw daily") {
+					else if (unit_lc == "kwh/kw daily") {
 						iunit = 3;
 					}
 
