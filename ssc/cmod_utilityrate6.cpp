@@ -25,6 +25,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 
 #include "cmod_utilityrate6.h"
+#include "lib_utility_rate.h"
 
 static var_info vtab_utility_rate6_input[] = 
 {	/*   VARTYPE , DATATYPE   , NAME            , LABEL                                      , UNITS , META , GROUP         , REQUIRED_IF       , CONSTRAINTS           , UI_HINTS*/
@@ -1091,7 +1092,7 @@ void cm_utilityrate6::monthly_outputs(ssc_number_t *e_load, ssc_number_t *e_sys,
 
 void cm_utilityrate6::parse_urdb_json()
 {
-
+	std::unique_ptr<UtilityRate> utilityRate(new UtilityRate(as_string("urdb_json")));
 }
 
 void cm_utilityrate6::setup()
