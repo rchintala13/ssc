@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <locale> // std::locale, std::tolower
 #include <cmath>
 #include <iostream>
 #include <sstream>
@@ -76,7 +77,12 @@ bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 					}
 					int iunit = 0;
 					std::string unit = tier["unit"].asString();
-					std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
+					std::string unit_lc; // lower case units
+					std::locale loc;
+					for (std::string::size_type i = 0; i < unit.length(); ++i) {
+						unit_lc.push_back(std::tolower(unit[i], loc));
+					}
+					//std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
 					if (unit == "kwh") {
 						iunit = 0;
 					}

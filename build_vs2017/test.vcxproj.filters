@@ -310,6 +310,18 @@
     <ClInclude Include="..\test\ssc_test\cmod_tcsfresnel_molten_salt_test.h">
       <Filter>ssc_test</Filter>
     </ClInclude>
+    <ClInclude Include="..\test\ssc_test\cmod_utilityrate5_test.h">
+      <Filter>ssc_test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test\shared_test\lib_utility_rate_test.h">
+      <Filter>shared_test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test\input_cases\utilityrate5_common_data.h">
+      <Filter>input_cases</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test\shared_test\jsoncpp_test.h">
+      <Filter>shared_test</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="input_cases">
