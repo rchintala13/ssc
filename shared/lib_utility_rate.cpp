@@ -96,10 +96,10 @@ bool UtilityRate::parseUrdbRate(std::string urdb_reponse)
 						iunit = 3;
 					}
 
-					ec_rates_vector.push_back(p + 1);
-					ec_rates_vector.push_back(t + 1);
+					ec_rates_vector.push_back(static_cast<double>(p + 1));
+					ec_rates_vector.push_back(static_cast<double>(t + 1));
 					ec_rates_vector.push_back(max);
-					ec_rates_vector.push_back(iunit);
+					ec_rates_vector.push_back(static_cast<double>(iunit));
 					ec_rates_vector.push_back(tier["rate"].asDouble() + tier["adj"].asDouble());
 					ec_rates_vector.push_back(tier["sell"].asDouble());
 					energy_rows++;
