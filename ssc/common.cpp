@@ -81,13 +81,13 @@ var_info_invalid };
 
 var_info vtab_financial_capacity_payments[] = {
 
-	/*   VARTYPE           DATATYPE         NAME                                         LABEL                              UNITS     META                      GROUP          REQUIRED_IF                 CONSTRAINTS                      UI_HINTS	*/
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_esc",                           "Capacity payment escalation",                                  "%/year",  "",                      "Capacity Payments",      "*",                   "",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_payment_type",                           "Payment type",                                  "",  "0=Energy basis,1=Fixed amount",                      "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",          "" },
-		{ SSC_INPUT,        SSC_ARRAY,      "cp_payment_amount",                           "Payment amount",                                  "$ or $/MW",  "",                      "Capacity Payments",      "*",                   "",          "" },
-		{ SSC_INPUT,        SSC_ARRAY,      "cp_nameplate_percentage",                           "Eligible capacity percent of nameplate",                                  "%",  "",                      "Capacity Payments",      "cp_payment_type=1",                   "",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_system_nameplate",                           "Capacity system nameplate",                                  "MW",  "",                      "Capacity Payments",      "cp_payment_type=1",                   "MIN=0",          "" },
-		{ SSC_INPUT,        SSC_NUMBER,      "cp_battery_nameplate",                           "Capacity battery nameplate",                                  "MW",  "",                      "Capacity Payments",      "cp_payment_type=1",                   "MIN=0",          "" },
+	/*   VARTYPE           DATATYPE         NAME                                    LABEL                                             UNITS        META                               GROUP                    REQUIRED_IF           CONSTRAINTS               UI_HINTS	*/
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_capacity_payment_esc",             "Capacity payment escalation",                      "%/year",    "",                               "Capacity Payments",      "*",                   "",                      "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_capacity_payment_type",            "Capacity payment type",                            "",          "0=Energy basis,1=Fixed amount",  "Capacity Payments",      "*",                   "INTEGER,MIN=0,MAX=1",   "" },
+		{ SSC_INPUT,        SSC_ARRAY,       "cp_capacity_payment_amount",          "Capacity payment amount",                          "$ or $/MW", "",                               "Capacity Payments",      "*",                   "",                      "" },
+		{ SSC_INPUT,        SSC_ARRAY,       "cp_capacity_credit_percent",          "Capacity credit (eligible portion of nameplate)",  "%",         "",                               "Capacity Payments",      "cp_payment_type=1",   "",                      "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_system_nameplate",                 "System nameplate",                                 "MW",        "",                               "Capacity Payments",      "cp_payment_type=1",   "MIN=0",                 "" },
+		{ SSC_INPUT,        SSC_NUMBER,      "cp_battery_nameplate",                "Battery nameplate",                                "MW",        "",                               "Capacity Payments",      "cp_payment_type=1",   "MIN=0",                 "" },
 
 var_info_invalid };
 

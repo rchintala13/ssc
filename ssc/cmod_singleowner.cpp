@@ -1358,13 +1358,13 @@ public:
 
 
 		// capacity payment
-		int cp_payment_type = as_integer("cp_payment_type");
+		int cp_payment_type = as_integer("cp_capacity_payment_type");
 		if (cp_payment_type < 0 || cp_payment_type > 1)
 			throw exec_error("singleowner", util::format("Invalid capacity payment type (%d).", cp_payment_type));
 		
 		size_t count_cp_payment_amount;
-		ssc_number_t *cp_payment_amount = as_array("cp_payment_amount", &count_cp_payment_amount);
-		ssc_number_t cp_payment_esc = as_number("cp_payment_esc") *0.01;
+		ssc_number_t *cp_payment_amount = as_array("cp_capacity_payment_amount", &count_cp_payment_amount);
+		ssc_number_t cp_payment_esc = as_number("cp_capacity_payment_esc") *0.01;
 		if (count_cp_payment_amount == 1)
 		{
 			for (size_t y = 1; y <= (size_t)nyears; y++)
@@ -1384,19 +1384,19 @@ public:
 		{
 			// use system nameplate
 			ssc_number_t cp_nameplate = as_number("cp_system_nameplate");
-			size_t count_cp_nameplate_percentage = 0;
-			ssc_number_t *cp_nameplate_percentage = as_array("cp_nameplate_percentage", &count_cp_nameplate_percentage);
-			if (count_cp_nameplate_percentage == 1)
+			size_t count_cp_capacity_credit_percent = 0;
+			ssc_number_t *cp_capacity_credit_percent = as_array("cp_capacity_credit_percent", &count_cp_capacity_credit_percent);
+			if (count_cp_capacity_credit_percent == 1)
 			{
 				for (size_t y = 1; y <= (size_t)nyears; y++)
-					cf.at(CF_capacity_payment, y) *= cp_nameplate_percentage[0]*0.01 * cp_nameplate;
+					cf.at(CF_capacity_payment, y) *= cp_capacity_credit_percent[0]*0.01 * cp_nameplate;
 			}
 			else
 			{
 				for (size_t y = 1; y <= (size_t)nyears; y++)
 				{
-					if (y <= count_cp_nameplate_percentage)
-						cf.at(CF_capacity_payment, y) *= cp_nameplate_percentage[y - 1] * 0.01 * cp_nameplate;
+					if (y <= count_cp_capacity_credit_percent)
+						cf.at(CF_capacity_payment, y) *= cp_capacity_credit_percent[y - 1] * 0.01 * cp_nameplate;
 					else
 						cf.at(CF_capacity_payment, y) = 0.0;
 				}

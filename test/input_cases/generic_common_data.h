@@ -392,14 +392,14 @@ void generic_singleowner_battery_60min(ssc_data_t &data)
 	ssc_data_set_number( data, "battery_per_kWh", 300 );
 	ssc_data_set_number( data, "batt_replacement_cost_escal", 0 );
 
-	ssc_data_set_number(data, "cp_payment_type", 0);
-	ssc_data_set_number(data, "cp_payment_esc", 0);
+	ssc_data_set_number(data, "cp_capacity_payment_type", 0);
+	ssc_data_set_number(data, "cp_capacity_payment_esc", 0);
 	ssc_number_t p_cp_payment_amount[1] = {0};
-	ssc_data_set_array(data, "cp_payment_amount", p_cp_payment_amount, 1);
+	ssc_data_set_array(data, "cp_capacity_payment_amount", p_cp_payment_amount, 1);
 	ssc_data_set_number(data, "cp_system_nameplate", 20.000888824462891);
 	ssc_data_set_number(data, "cp_battery_nameplate", 1.9995983839035034);
 	ssc_number_t p_cp_nameplate_percentage[1] = { 0 };
-	ssc_data_set_array(data, "cp_nameplate_percentage", p_cp_nameplate_percentage, 1);
+	ssc_data_set_array(data, "cp_capacity_credit_percent", p_cp_nameplate_percentage, 1);
 	ssc_number_t p_grid_curtailment_price[1] = { 0 };
 	ssc_data_set_array(data, "grid_curtailment_price", p_grid_curtailment_price, 1);
 	ssc_data_set_number(data, "grid_curtailment_price_esc", 0);
