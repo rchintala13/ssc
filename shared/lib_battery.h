@@ -91,12 +91,15 @@ public:
 
 	// common outputs
 	double SOC();
+	double SOC_max();
+	double SOC_min();
 	double DOD_max();
 	double DOD();
 	double prev_DOD();
 	double q0();
 	double qmax(); 
 	double qmax_thermal();
+	double q_upper();
 	double I();
 	bool chargeChanged();
 	double I_loss();
@@ -109,6 +112,7 @@ protected:
 	double _qmax; // [Ah] - maximum possible capacity
 	double _qmax_thermal; // [Ah] - maximum capacity adjusted for temperature affects
 	double _qmax0; // [Ah] - original maximum capacity
+	double _q_upper; // [Ah] - the effective upper capacity in the time step 
 	double _I;   // [A]  - Current draw during last step
 	double _I_loss; // [A] - Lifetime and thermal losses
 	double _SOC; // [%] - State of Charge
@@ -739,6 +743,7 @@ public:
 	double battery_energy_to_fill(double SOC_max);
 	double battery_power_to_fill(double SOC_max);
 	double battery_soc();
+	bool thermal_convergence_met();
 
 	// Get Voltage
 	double cell_voltage();
@@ -761,6 +766,7 @@ private:
 	double _dt_hour;			// [hr] - timestep
 	double _dt_min;				// [min] - timestep
 	size_t _last_idx;
+	bool thermal_convergence;	    // a flag to indicate if we can't converge on thermal loop
 };
 
 #endif

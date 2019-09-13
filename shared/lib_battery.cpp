@@ -92,6 +92,7 @@ capacity_t::capacity_t(double q, double SOC_init, double SOC_max, double SOC_min
 	_SOC_min = SOC_min;
 	_DOD = 0;
 	_DOD_prev = 0;
+	_q_upper = q * 0.01 * SOC_max;
 
 	// Initialize charging states
 	_prev_charge = DISCHARGE;
@@ -104,6 +105,7 @@ void capacity_t::copy(capacity_t * capacity)
 	_qmax = capacity->_qmax;
 	_qmax_thermal = capacity->_qmax_thermal;
 	_qmax0 = capacity->_qmax0;
+	_q_upper = capacity->_q_upper;
 	_I = capacity->_I;
 	_I_loss = capacity->_I_loss;
 	_SOC = capacity->_SOC;
@@ -146,6 +148,8 @@ void capacity_t::check_SOC()
 	if (q_upper > _qmax_thermal * _SOC_max * 0.01) {
 		q_upper = _qmax_thermal * _SOC_max * 0.01;
 	}
+	_q_upper = q_upper;
+
 	// do this so battery can cycle full depth and we calculate correct SOC min
 	if (q_lower > _qmax_thermal * _SOC_min * 0.01) {
 		q_lower = _qmax_thermal * _SOC_min * 0.01;
@@ -157,8 +161,9 @@ void capacity_t::check_SOC()
 		if (fabs(_I) > tolerance)
 		{
 			_I += (_q0 - q_upper) / _dt_hour;
-			if (_I / I_orig < 0)
+			if (_I / I_orig < 0) {
 				_I = 0;
+			}
 		}
 		_q0 = q_upper;
 	}
@@ -192,12 +197,15 @@ void capacity_t::update_SOC()
 }
 bool capacity_t::chargeChanged(){return _chargeChange;}
 double capacity_t::SOC(){ return _SOC; }
+double capacity_t::SOC_max() { return _SOC_max; }
+double capacity_t::SOC_min() { return _SOC_min; }
 double capacity_t::DOD(){ return _DOD; }
 double capacity_t::DOD_max(){ return _SOC_max - _SOC_min; }
 double capacity_t::prev_DOD(){ return _DOD_prev; }
 double capacity_t::q0(){ return _q0;}
 double capacity_t::qmax(){ return _qmax; }
 double capacity_t::qmax_thermal(){ return _qmax_thermal; }
+double capacity_t::q_upper() {return _q_upper;}
 double capacity_t::I(){ return _I; }
 double capacity_t::I_loss() { return _I_loss; }
 
@@ -1525,6 +1533,7 @@ battery_t::battery_t(double dt_hour, int battery_chemistry)
 	_dt_min = dt_hour * 60;
 	_battery_chemistry = battery_chemistry;
 	_last_idx = 0;
+	thermal_convergence = true;
 
 	if (battery_chemistry != battery_t::LEAD_ACID) {
 		_capacity_initial = new capacity_lithium_ion_t();
@@ -1607,6 +1616,7 @@ void battery_t::run(size_t lifetimeIndex, double I)
 	size_t iterate_count = 0;
 	_capacity_initial->copy(_capacity);
 	_thermal_initial->copy(_thermal);
+	thermal_convergence = true;
 
 	while (iterate_count < 5)
 	{
@@ -1615,6 +1625,17 @@ void battery_t::run(size_t lifetimeIndex, double I)
 
 		if (fabs(I - I_initial)/fabs(I_initial) > tolerance)
 		{
+			if ((I == 0 && I_initial < 0 && _capacity->SOC() >= _capacity->SOC_max() - tolerance) || 
+				(I == 0 && I_initial > 0 && _capacity->SOC() <= _capacity->SOC_min() + tolerance)){
+				// this means that battery was almost full and tried to top off
+				// but, thermal capacity  percent < 100 caused battery q0 to be greater than q_upper
+				// so I was calculated to need to flip signs and set to zero.  
+				// stop trying to converge, set to zero and flag not to rerun
+				thermal_convergence = false;
+				break;
+			}
+
+
 			_thermal->copy(_thermal_initial);
 			_capacity->copy(_capacity_initial);
 			I_initial = I;
@@ -1706,3 +1727,4 @@ double battery_t::cell_voltage(){ return _voltage->cell_voltage();}
 double battery_t::battery_voltage(){ return _voltage->battery_voltage();}
 double battery_t::battery_voltage_nominal(){ return _voltage->battery_voltage_nominal(); }
 double battery_t::battery_soc(){ return _capacity->SOC(); }
+bool battery_t::thermal_convergence_met() { return thermal_convergence; }

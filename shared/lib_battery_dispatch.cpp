@@ -118,13 +118,17 @@ dispatch_t::~dispatch_t()
 }
 void dispatch_t::finalize(size_t idx, double &I)
 {
-	_Battery->copy(_Battery_initial);
 	m_batteryPower->powerBatteryDC = 0;
 	m_batteryPower->powerBatteryAC = 0;
 	m_batteryPower->powerGridToBattery = 0;
 	m_batteryPower->powerBatteryToGrid = 0;
 	m_batteryPower->powerPVToGrid = 0;
-	_Battery->run(idx, I);
+
+	// if not converged thermally, don't rerun
+	if (_Battery->thermal_convergence_met()) {
+		_Battery->copy(_Battery_initial);
+		_Battery->run(idx, I);
+	}
 }
 
 bool dispatch_t::check_constraints(double &I, size_t count)
