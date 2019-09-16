@@ -110,77 +110,6 @@ static var_info _cm_vtab_merchantplant[] = {
     { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_dec",                     "Energy produced by the system in December",                     "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
     { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_dec",                        "Revenue from the system in December",                           "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
                                                                                   
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch1",	              "Energy produced by the system in TOD period 1",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch1",		                  "Revenue from the system in TOD period 1",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch2",	                  "Energy produced by the system in TOD period 2",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch2",		                  "Revenue from the system in TOD period 2",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch3",	                  "Energy produced by the system in TOD period 3",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch3",		                  "Revenue from the system in TOD period 3",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch4",	                  "Energy produced by the system in TOD period 4",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch4",		                  "Revenue from the system in TOD period 4",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch5",	                  "Energy produced by the system in TOD period 5",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch5",		                  "Revenue from the system in TOD period 5",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch6",	                  "Energy produced by the system in TOD period 6",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch6",		                  "Revenue from the system in TOD period 6",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch7",	                  "Energy produced by the system in TOD period 7",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch7",		                  "Revenue from the system in TOD period 7",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch8",	                  "Energy produced by the system in TOD period 8",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch8",		                  "Revenue from the system in TOD period 8",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_dispatch9",	                  "Energy produced by the system in TOD period 9",	               "kWh",   "",  "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",						   "LENGTH_EQUAL=cf_length",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_dispatch9",		                  "Revenue from the system in TOD period 9",	                   "$",   "",      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "LENGTH_EQUAL=cf_length",                 "" },
-                                                                                  
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch1",            "First year revenue from the system in TOD period 1",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT, SSC_NUMBER, "firstyear_revenue_dispatch2", "First year revenue from the system in TOD period 2", "$", "", "Cash Flow Revenue by Month and TOD Period", "ppa_multiplier_model=0", "", "" },
-	{ SSC_OUTPUT, SSC_NUMBER, "firstyear_revenue_dispatch3", "First year revenue from the system in TOD period 3", "$", "", "Cash Flow Revenue by Month and TOD Period", "ppa_multiplier_model=0", "", "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch4",            "First year revenue from the system in TOD period 4",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch5",            "First year revenue from the system in TOD period 5",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch6",            "First year revenue from the system in TOD period 6",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch7",            "First year revenue from the system in TOD period 7",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch8",            "First year revenue from the system in TOD period 8",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_revenue_dispatch9",            "First year revenue from the system in TOD period 9",            "$",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-                                                                                                                                                   
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch1",             "First year energy from the system in TOD period 1",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch2",             "First year energy from the system in TOD period 2",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch3",             "First year energy from the system in TOD period 3",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch4",             "First year energy from the system in TOD period 4",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch5",             "First year energy from the system in TOD period 5",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch6",             "First year energy from the system in TOD period 6",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch7",             "First year energy from the system in TOD period 7",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch8",             "First year energy from the system in TOD period 8",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_dispatch9",             "First year energy from the system in TOD period 9",             "kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-                                                                                  
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price1",                "First year energy price for TOD period 1",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price2",                "First year energy price for TOD period 2",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price3",                "First year energy price for TOD period 3",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price4",                "First year energy price for TOD period 4",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price5",                "First year energy price for TOD period 5",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price6",                "First year energy price for TOD period 6",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price7",                "First year energy price for TOD period 7",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price8",                "First year energy price for TOD period 8",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-	{ SSC_OUTPUT,        SSC_NUMBER,    "firstyear_energy_price9",                "First year energy price for TOD period 9",                      "cents/kWh",             "",                      "Cash Flow Revenue by Month and TOD Period",      "ppa_multiplier_model=0",                       "",                                  "" },
-                                                                                  
-// first year monthly output for each TOD period                                  
-//	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear",		      "First year revenue from the system by month",	"",   "",      "Cash Flow Revenue by Month and TOD Period",             "*",				   "",                 "" },
-//	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear",	      "First year energy from the system by month",	"",   "",          "Cash Flow Revenue by Month and TOD Period",             "*",				   "",                 "" },
-                                                                                 
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD1",      "First year revenue from the system by month for TOD period 1",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD1",   "First year energy from the system by month for TOD period 1",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD2",      "First year revenue from the system by month for TOD period 2",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD2",   "First year energy from the system by month for TOD period 2",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD3",      "First year revenue from the system by month for TOD period 3",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD3",   "First year energy from the system by month for TOD period 3",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD4",      "First year revenue from the system by month for TOD period 4",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD4",   "First year energy from the system by month for TOD period 4",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD5",      "First year revenue from the system by month for TOD period 5",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD5",   "First year energy from the system by month for TOD period 5",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD6",      "First year revenue from the system by month for TOD period 6",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD6",   "First year energy from the system by month for TOD period 6",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD7",      "First year revenue from the system by month for TOD period 7",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD7",   "First year energy from the system by month for TOD period 7",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD8",      "First year revenue from the system by month for TOD period 8",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD8",   "First year energy from the system by month for TOD period 8",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_revenue_monthly_firstyear_TOD9",      "First year revenue from the system by month for TOD period 9",  "$",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
-	{ SSC_OUTPUT,        SSC_ARRAY,     "cf_energy_net_monthly_firstyear_TOD9",   "First year energy from the system by month for TOD period 9",   "kWh",   "",                      "Cash Flow Revenue by Month and TOD Period",             "ppa_multiplier_model=0",				   "",                 "" },
                                                                                   
 /* inputs in model not currently in M 11/15/10 */                             
 	{ SSC_INPUT,         SSC_NUMBER,    "total_installed_cost",                   "Installed cost",                                                "$",     "",					  "System Costs",			 "*",                         "",                             "" },
@@ -209,9 +138,6 @@ static var_info _cm_vtab_merchantplant[] = {
 	{ SSC_INPUT,        SSC_NUMBER,		"ppa_soln_max",                           "PPA solution maximum ppa",                                      "cents/kWh",   "", "Solution Mode",         "?=100",                     "",            "" },
 	{ SSC_INPUT,        SSC_NUMBER,		"ppa_soln_max_iterations",                "PPA solution maximum number of iterations",                     "",   "", "Solution Mode",         "?=100",                     "INTEGER,MIN=1",            "" },
                                                                                   
-	{ SSC_INPUT,        SSC_ARRAY,     "ppa_price_input",			              "PPA price in first year",			                               "$/kWh",	 "",			  "PPA Price",			 "*",         "",      			"" },
-	{ SSC_INPUT, SSC_NUMBER, "ppa_escalation", "PPA escalation rate", "%/year", "", "PPA Price", "?=0", "", "" },
-
 /* construction period */                                                     
 	{ SSC_INPUT,       SSC_NUMBER,      "construction_financing_cost",	          "Construction financing total",	                                "$",	 "",					  "Construction Financing",			 "*",                         "",                             "" },
                                                                                   
@@ -1053,7 +979,6 @@ class cm_merchantplant : public compute_module
 {
 private:
 	util::matrix_t<double> cf;
-	dispatch_calculations m_disp_calcs;
 	hourly_energy_calculation hourly_energy_calcs;
 
 
@@ -1181,9 +1106,70 @@ public:
 		util::matrix_t<double> mp_ancserv_4_revenue_mat(nrows, ncols);
 		mp_ancserv_4_revenue_mat.assign(mp_ancserv4_revenue_in, nrows, ncols);
 
-		// need to check sum of all cleared capacities at each timestep
-		// TODO calculate revenue
+		// TODO need to check sum of all cleared capacities at each timestep
 
+		// calculate revenue per year
+		double as_revenue = 0;
+		size_t base_index = 0;
+		size_t n_marketrevenue_per_year = mp_energy_market_revenue_mat.nrows() / (size_t)nyears;
+		for (i = 1; i <= nyears; i++)
+		{
+			as_revenue = 0;
+			base_index = (i - 1)*n_marketrevenue_per_year;
+			for (size_t j = 0; j < n_marketrevenue_per_year; j++)
+			{
+				as_revenue += mp_energy_market_revenue_mat.at(base_index + j, 0) * mp_energy_market_revenue_mat.at(base_index + j, 1);
+			}
+			cf.at(CF_energy_market_revenue, i) = as_revenue;
+		}
+
+		size_t n_ancserv_1_revenue_per_year = mp_ancserv_1_revenue_mat.nrows() / (size_t)nyears;
+		for ( i = 1; i <= nyears; i++)
+		{
+			as_revenue = 0;
+			base_index = (i - 1)*n_ancserv_1_revenue_per_year;
+			for (size_t j = 0; j < n_ancserv_1_revenue_per_year; j++)
+			{
+				as_revenue += mp_ancserv_1_revenue_mat.at(base_index + j, 0) * mp_ancserv_1_revenue_mat.at(base_index + j, 1);
+			}
+			cf.at(CF_ancillary_services_1_revenue, i) = as_revenue;
+		}
+
+		size_t n_ancserv_2_revenue_per_year = mp_ancserv_2_revenue_mat.nrows() / (size_t)nyears;
+		for ( i = 1; i <= nyears; i++)
+		{
+			as_revenue = 0;
+			base_index = (i - 1)*n_ancserv_2_revenue_per_year;
+			for (size_t j = 0; j < n_ancserv_2_revenue_per_year; j++)
+			{
+				as_revenue += mp_ancserv_2_revenue_mat.at(base_index + j, 0) * mp_ancserv_2_revenue_mat.at(base_index + j, 1);
+			}
+			cf.at(CF_ancillary_services_2_revenue, i) = as_revenue;
+		}
+
+		size_t n_ancserv_3_revenue_per_year = mp_ancserv_3_revenue_mat.nrows() / (size_t)nyears;
+		for ( i = 1; i <= nyears; i++)
+		{
+			as_revenue = 0;
+			base_index = (i - 1)*n_ancserv_3_revenue_per_year;
+			for (size_t j = 0; j < n_ancserv_3_revenue_per_year; j++)
+			{
+				as_revenue += mp_ancserv_3_revenue_mat.at(base_index + j, 0) * mp_ancserv_3_revenue_mat.at(base_index + j, 1);
+			}
+			cf.at(CF_ancillary_services_3_revenue, i) = as_revenue;
+		}
+
+		size_t n_ancserv_4_revenue_per_year = mp_ancserv_4_revenue_mat.nrows() / (size_t)nyears;
+		for ( i = 1; i <= nyears; i++)
+		{
+			as_revenue = 0;
+			base_index = (i - 1)*n_ancserv_4_revenue_per_year;
+			for (size_t j = 0; j < n_ancserv_4_revenue_per_year; j++)
+			{
+				as_revenue += mp_ancserv_4_revenue_mat.at(base_index + j, 0) * mp_ancserv_4_revenue_mat.at(base_index + j, 1);
+			}
+			cf.at(CF_ancillary_services_4_revenue, i) = as_revenue;
+		}
 
 
 		double nom_discount_rate = (1+inflation_rate)*(1+disc_real)-1;
@@ -1275,7 +1261,7 @@ public:
 			// updated 10/17/15 per 10/14/15 meeting
 			escal_or_annual(CF_battery_replacement_cost_schedule, nyears, "om_replacement_cost1", inflation_rate, batt_cap, false, as_double("om_replacement_cost_escal")*0.01);
 
-			for (int i = 0; i < nyears && i < (int)count; i++) {
+			for ( i = 0; i < nyears && i < (int)count; i++) {
 				cf.at(CF_battery_replacement_cost, i + 1) = batt_rep[i] *
 					cf.at(CF_battery_replacement_cost_schedule, i + 1);
 			}
@@ -1292,7 +1278,7 @@ public:
 				fuelcell_rep = as_array("fuelcell_replacement_schedule", &count); // replacements per year user-defined
 			escal_or_annual(CF_fuelcell_replacement_cost_schedule, nyears, "om_replacement_cost2", inflation_rate, nameplate2, false, as_double("om_replacement_cost_escal")*0.01);
 
-			for (int i = 0; i < nyears && i < (int)count; i++) {
+			for ( i = 0; i < nyears && i < (int)count; i++) {
 				cf.at(CF_fuelcell_replacement_cost, i + 1) = fuelcell_rep[i] *
 					cf.at(CF_fuelcell_replacement_cost_schedule, i + 1);
 			}
@@ -1453,8 +1439,6 @@ public:
 		{
 			degrade_cf.push_back(cf.at(CF_degradation, i));
 		}
-		m_disp_calcs.init(this, degrade_cf, hourly_energy_calcs.hourly_energy());
-		// end of energy and dispatch initialization
 
 
 
@@ -3155,6 +3139,11 @@ public:
 		save_cf( CF_debt_payment_principal, nyears, "cf_debt_payment_principal" );
 		save_cf( CF_debt_balance, nyears, "cf_debt_balance" );
 
+		save_cf(CF_energy_market_revenue, nyears, "cf_energy_market_revenue");
+		save_cf(CF_ancillary_services_1_revenue, nyears, "cf_ancillary_services_1_revenue");
+		save_cf(CF_ancillary_services_2_revenue, nyears, "cf_ancillary_services_2_revenue");
+		save_cf(CF_ancillary_services_3_revenue, nyears, "cf_ancillary_services_3_revenue");
+		save_cf(CF_ancillary_services_4_revenue, nyears, "cf_ancillary_services_4_revenue");
 
 		save_cf(CF_thermal_value, nyears, "cf_thermal_value");
 		save_cf(CF_curtailment_value, nyears, "cf_curtailment_value");
