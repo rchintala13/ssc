@@ -85,31 +85,6 @@ static var_info _cm_vtab_merchantplant[] = {
 	{ SSC_INPUT,        SSC_NUMBER,     "system_use_lifetime_output",		      "Lifetime hourly system outputs",	                               "0/1",                         "0=hourly first year,1=hourly lifetime",                      "Time of Delivery",             "*",						   "INTEGER,MIN=0",                 "" },
 
                                                                                   																   
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_jan",                     "Energy produced by the system in January",                      "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_jan",                        "Revenue from the system in January",                            "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_feb",                     "Energy produced by the system in February",                     "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_feb",                        "Revenue from the system in February",                           "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_mar",                     "Energy produced by the system in March",                        "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_mar",                        "Revenue from the system in March",                              "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_apr",                     "Energy produced by the system in April",                        "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_apr",                        "Revenue from the system in April",                              "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_may",                     "Energy produced by the system in May",                          "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_may",                        "Revenue from the system in May",                                "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_jun",                     "Energy produced by the system in June",                         "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_jun",                        "Revenue from the system in June",                               "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_jul",                     "Energy produced by the system in July",                         "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_jul",                        "Revenue from the system in July",                               "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_aug",                     "Energy produced by the system in August",                       "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_aug",                        "Revenue from the system in August",                             "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_sep",                     "Energy produced by the system in September",                    "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_sep",                        "Revenue from the system in September",                          "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_oct",                     "Energy produced by the system in October",                      "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_oct",                        "Revenue from the system in October",                            "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_nov",                     "Energy produced by the system in November",                     "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_nov",                        "Revenue from the system in November",                           "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_energy_net_dec",                     "Energy produced by the system in December",                     "kWh", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-    { SSC_OUTPUT,       SSC_ARRAY,       "cf_revenue_dec",                        "Revenue from the system in December",                           "$", "", "Cash Flow Revenue by Month and TOD Period", "*", "LENGTH_EQUAL=cf_length", "" },
-                                                                                  
                                                                                   
 /* inputs in model not currently in M 11/15/10 */                             
 	{ SSC_INPUT,         SSC_NUMBER,    "total_installed_cost",                   "Installed cost",                                                "$",     "",					  "System Costs",			 "*",                         "",                             "" },
@@ -533,7 +508,6 @@ static var_info _cm_vtab_merchantplant[] = {
 
 /* model outputs */
 	{ SSC_OUTPUT,       SSC_NUMBER,     "cf_length",                              "Number of periods in cashflow",      "",             "",                      "Metrics",      "*",                       "INTEGER",                                  "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "ppa_price",			                  "PPA price in first year",			"cents/kWh",	"",				   "Metrics",			  "*",                         "",      					   "" },
 /* Production - input as energy_net above */
 
 /* Partial Income Statement: Project */	
@@ -711,13 +685,8 @@ static var_info _cm_vtab_merchantplant[] = {
 	{ SSC_OUTPUT,       SSC_NUMBER,     "flip_actual_irr",                        "IRR in target year",                        "%",                   "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "lcoe_real",                              "Levelized cost (real)",                               "cents/kWh",               "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "lcoe_nom",                               "Levelized cost (nominal)",                            "cents/kWh",               "", "Metrics", "*", "", "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "lppa_real",                              "Levelized PPA price (real)",                         "cents/kWh",               "", "Metrics", "*", "", "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "lppa_nom",                               "Levelized PPA price (nominal)",                      "cents/kWh",               "", "Metrics", "*", "", "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "ppa",                                    "PPA price (Year 1)",                        "cents/kWh",               "", "Metrics", "*", "", "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "ppa_escalation",                         "PPA price escalation",                      "%/year",              "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "project_return_aftertax_irr",            "Internal rate of return (after-tax)",       "%",                   "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "project_return_aftertax_npv",            "Net present value (after-tax)",             "$",                   "", "Metrics", "*", "", "" },
-	{ SSC_OUTPUT,       SSC_NUMBER,     "npv_ppa_revenue",                        "Present value of PPA revenue",              "$",                   "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "npv_energy_nom",                         "Present value of annual energy (nominal)",     "kWh",                 "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "npv_energy_real",                        "Present value of annual energy (real)",     "kWh",                 "", "Metrics", "*", "", "" },
 	{ SSC_OUTPUT,       SSC_NUMBER,     "present_value_oandm",                    "Present value of O&M",				       "$",                   "", "Metrics", "*", "", "" },
@@ -744,14 +713,19 @@ static var_info _cm_vtab_merchantplant[] = {
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_curtailment_value", "Curtailment payment revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_capacity_payment", "Capacity payment revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
 
+	{ SSC_INPUT,        SSC_NUMBER,     "mp_enable_energy_market_revenue",		      "Enable energy market revenue",   "0/1",   "",    "",  "*",	"INTEGER,MIN=0,MAX=1",      "" },
 	{ SSC_INPUT, SSC_MATRIX, "mp_energy_market_revenue", "Energy market revenue input", "", "","*", "", ""},
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_energy_market_revenue", "Energy market revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_INPUT,        SSC_NUMBER,     "mp_enable_ancserv1",		      "Enable ancillary services 1 revenue",   "0/1",   "",    "",  "*",	"INTEGER,MIN=0,MAX=1",      "" },
 	{ SSC_INPUT, SSC_MATRIX, "mp_ancserv1_revenue", "Ancillary services 1 revenue input", "", "","*", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_ancillary_services_1_revenue", "Ancillary services 1 revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_INPUT,        SSC_NUMBER,     "mp_enable_ancserv2",		      "Enable ancillary services 2 revenue",   "0/1",   "",    "",  "*",	"INTEGER,MIN=0,MAX=1",      "" },
 	{ SSC_INPUT, SSC_MATRIX, "mp_ancserv2_revenue", "Ancillary services 2 revenue input", "", "","*", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_ancillary_services_2_revenue", "Ancillary services 2 revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_INPUT,        SSC_NUMBER,     "mp_enable_ancserv3",		      "Enable ancillary services 3 revenue",   "0/1",   "",    "",  "*",	"INTEGER,MIN=0,MAX=1",      "" },
 	{ SSC_INPUT, SSC_MATRIX, "mp_ancserv3_revenue", "Ancillary services 3 revenue input", "", "","*", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_ancillary_services_3_revenue", "Ancillary services 3 revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
+	{ SSC_INPUT,        SSC_NUMBER,     "mp_enable_ancserv4",		      "Enable ancillary services 4 revenue",   "0/1",   "",    "",  "*",	"INTEGER,MIN=0,MAX=1",      "" },
 	{ SSC_INPUT, SSC_MATRIX, "mp_ancserv4_revenue", "Ancillary services 4 revenue input", "", "","*", "", "" },
 	{ SSC_OUTPUT, SSC_ARRAY, "cf_ancillary_services_4_revenue", "Ancillary services 4 revenue", "$", "", "", "*", "LENGTH_EQUAL=cf_length", "" },
 
@@ -1053,58 +1027,84 @@ public:
 		}
 
 		// merchant plant additional revenue streams
+		// enabled/disabled booleans
+		bool en_mp_energy_market = (as_integer("mp_enable_energy_market_revenue") == 1);
+		bool en_mp_ancserv1 = (as_integer("mp_enable_ancserv1") == 1);
+		bool en_mp_ancserv2 = (as_integer("mp_enable_ancserv2") == 1);
+		bool en_mp_ancserv3 = (as_integer("mp_enable_ancserv3") == 1);
+		bool en_mp_ancserv4 = (as_integer("mp_enable_ancserv4") == 1);
 		// cleared capacity and price columns
 		// need to check sum of all cleared capacities.
 		size_t nrows, ncols;
-		ssc_number_t *mp_energy_market_revenue_in = as_matrix("mp_energy_market_revenue", &nrows, &ncols);
-		if (ncols != 2)
+		util::matrix_t<double> mp_energy_market_revenue_mat(1, 2, 0.0);
+		if (en_mp_energy_market)
 		{
-			std::ostringstream ss;
-			ss << "The energy market revenue table must have 2 columns. Instead it has " << ncols << " columns.";
-			throw exec_error("merchant plant", ss.str());
+			ssc_number_t *mp_energy_market_revenue_in = as_matrix("mp_energy_market_revenue", &nrows, &ncols);
+			if (ncols != 2)
+			{
+				std::ostringstream ss;
+				ss << "The energy market revenue table must have 2 columns. Instead it has " << ncols << " columns.";
+				throw exec_error("merchant plant", ss.str());
+			}
+			mp_energy_market_revenue_mat.resize(nrows, ncols);
+			mp_energy_market_revenue_mat.assign(mp_energy_market_revenue_in, nrows, ncols);
 		}
-		util::matrix_t<double> mp_energy_market_revenue_mat(nrows, ncols);
-		mp_energy_market_revenue_mat.assign(mp_energy_market_revenue_in, nrows, ncols);
 
-		ssc_number_t *mp_ancserv1_revenue_in = as_matrix("mp_ancserv1_revenue", &nrows, &ncols);
-		if (ncols != 2)
+		util::matrix_t<double> mp_ancserv_1_revenue_mat(1, 2, 0.0);
+		if (en_mp_ancserv1)
 		{
-			std::ostringstream ss;
-			ss << "The ancillary services revenue 1 table must have 2 columns. Instead it has " << ncols << " columns.";
-			throw exec_error("merchant plant", ss.str());
+			ssc_number_t *mp_ancserv1_revenue_in = as_matrix("mp_ancserv1_revenue", &nrows, &ncols);
+			if (ncols != 2)
+			{
+				std::ostringstream ss;
+				ss << "The ancillary services revenue 1 table must have 2 columns. Instead it has " << ncols << " columns.";
+				throw exec_error("merchant plant", ss.str());
+			}
+			mp_ancserv_1_revenue_mat.resize(nrows, ncols);
+			mp_ancserv_1_revenue_mat.assign(mp_ancserv1_revenue_in, nrows, ncols);
 		}
-		util::matrix_t<double> mp_ancserv_1_revenue_mat(nrows, ncols);
-		mp_ancserv_1_revenue_mat.assign(mp_ancserv1_revenue_in, nrows, ncols);
 
-		ssc_number_t *mp_ancserv2_revenue_in = as_matrix("mp_ancserv2_revenue", &nrows, &ncols);
-		if (ncols != 2)
+		util::matrix_t<double> mp_ancserv_2_revenue_mat(1, 2, 0.0);
+		if (en_mp_ancserv2)
 		{
-			std::ostringstream ss;
-			ss << "The ancillary services revenue 1 table must have 2 columns. Instead it has " << ncols << " columns.";
-			throw exec_error("merchant plant", ss.str());
+			ssc_number_t *mp_ancserv2_revenue_in = as_matrix("mp_ancserv2_revenue", &nrows, &ncols);
+			if (ncols != 2)
+			{
+				std::ostringstream ss;
+				ss << "The ancillary services revenue 2 table must have 2 columns. Instead it has " << ncols << " columns.";
+				throw exec_error("merchant plant", ss.str());
+			}
+			mp_ancserv_2_revenue_mat.resize(nrows, ncols);
+			mp_ancserv_2_revenue_mat.assign(mp_ancserv2_revenue_in, nrows, ncols);
 		}
-		util::matrix_t<double> mp_ancserv_2_revenue_mat(nrows, ncols);
-		mp_ancserv_2_revenue_mat.assign(mp_ancserv2_revenue_in, nrows, ncols);
 
-		ssc_number_t *mp_ancserv3_revenue_in = as_matrix("mp_ancserv3_revenue", &nrows, &ncols);
-		if (ncols != 2)
+		util::matrix_t<double> mp_ancserv_3_revenue_mat(1, 2, 0.0);
+		if (en_mp_ancserv3)
 		{
-			std::ostringstream ss;
-			ss << "The ancillary services revenue 1 table must have 2 columns. Instead it has " << ncols << " columns.";
-			throw exec_error("merchant plant", ss.str());
+			ssc_number_t *mp_ancserv3_revenue_in = as_matrix("mp_ancserv3_revenue", &nrows, &ncols);
+			if (ncols != 2)
+			{
+				std::ostringstream ss;
+				ss << "The ancillary services revenue 3 table must have 2 columns. Instead it has " << ncols << " columns.";
+				throw exec_error("merchant plant", ss.str());
+			}
+			mp_ancserv_3_revenue_mat.resize(nrows, ncols);
+			mp_ancserv_3_revenue_mat.assign(mp_ancserv3_revenue_in, nrows, ncols);
 		}
-		util::matrix_t<double> mp_ancserv_3_revenue_mat(nrows, ncols);
-		mp_ancserv_3_revenue_mat.assign(mp_ancserv3_revenue_in, nrows, ncols);
 
-		ssc_number_t *mp_ancserv4_revenue_in = as_matrix("mp_ancserv4_revenue", &nrows, &ncols);
-		if (ncols != 2)
+		util::matrix_t<double> mp_ancserv_4_revenue_mat(1, 2, 0.0);
+		if (en_mp_ancserv4)
 		{
-			std::ostringstream ss;
-			ss << "The ancillary services revenue 1 table must have 2 columns. Instead it has " << ncols << " columns.";
-			throw exec_error("merchant plant", ss.str());
+			ssc_number_t *mp_ancserv4_revenue_in = as_matrix("mp_ancserv4_revenue", &nrows, &ncols);
+			if (ncols != 2)
+			{
+				std::ostringstream ss;
+				ss << "The ancillary services revenue 4 table must have 2 columns. Instead it has " << ncols << " columns.";
+				throw exec_error("merchant plant", ss.str());
+			}
+			mp_ancserv_4_revenue_mat.resize(nrows, ncols);
+			mp_ancserv_4_revenue_mat.assign(mp_ancserv4_revenue_in, nrows, ncols);
 		}
-		util::matrix_t<double> mp_ancserv_4_revenue_mat(nrows, ncols);
-		mp_ancserv_4_revenue_mat.assign(mp_ancserv4_revenue_in, nrows, ncols);
 
 		// TODO need to check sum of all cleared capacities at each timestep
 
@@ -2836,6 +2836,8 @@ public:
 	double npv_energy_nom = npv(CF_energy_net, nyears, nom_discount_rate);
 	double npv_energy_real = npv(CF_energy_net,nyears,disc_real);
 
+	assign("npv_energy_nom", var_data((ssc_number_t)npv_energy_nom));
+	assign("npv_energy_real", var_data((ssc_number_t)npv_energy_real));
 
 	// from single_owner.xlsm
 	cf.at(CF_Annual_Costs, 0) = -issuance_of_equity;

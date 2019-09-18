@@ -57,6 +57,7 @@ OBJECTS = \
 	cmod_levpartflip.o \
 	cmod_saleleaseback.o \
 	cmod_singleowner.o \
+	cmod_merchantplant.o \
 	cmod_timeseq.o \
 	cmod_utilityrate.o \
 	cmod_utilityrate2.o \
