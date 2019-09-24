@@ -13,9 +13,9 @@ private:
 public:
     explicit resilience(battstor* battery){
         batt = new battstor(*battery);
-        if (auto auto_btm = dynamic_cast<dispatch_automatic_behind_the_meter_t*>(batt->dispatch_model)){
-
-         }
+//        if (auto auto_btm = dynamic_cast<dispatch_automatic_behind_the_meter_t*>(batt->dispatch_model)){
+//
+//         }
         days_survived = -1;
     }
 

@@ -60,6 +60,9 @@ set(SHARED_SRC
 	lib_wind_obos_cable_vessel.cpp
 	lib_windwakemodel.cpp
 	lib_windwatts.cpp
+
+	lib_storage_capacity.cpp
+	lib_storage_voltage.cpp
 		)
 
 
