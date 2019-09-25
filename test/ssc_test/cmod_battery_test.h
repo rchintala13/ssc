@@ -30,7 +30,7 @@ public:
 	void SetUp()
 	{
 		data = ssc_data_create();
-		battery_commercial_peak_shaving_lifetime(data);
+        battery_commercial_peak_shaving_lifetime(data);
 
 	}
 	void TearDown() {

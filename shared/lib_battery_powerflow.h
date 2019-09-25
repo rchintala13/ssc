@@ -80,7 +80,7 @@ private:
 * \brief
 *
 *  The BatteryPower structure contains all of the power flow components for a battery simulation
-*  The structure also contains information about the single point efficiecies required to convert power from one form to another
+*  The structure also contains information about the single point efficiencies required to convert power from one form to another
 *  Power quantities in BatteryPower are either all AC or all DC depending on which part of the controller is looking at it
 */
 struct BatteryPower
@@ -127,8 +127,10 @@ public:
 	double powerFuelCellToLoad;    ///< The power from the fuelcell to the load (kW)
 	double powerFuelCellToBattery; ///< The power from the fuelcell to the battery (kW)
 	double powerPVInverterDraw;	   ///< The power draw from the PV inverter (kW)
-	double powerBatteryChargeMax;  ///< The maximum sustained power the battery can charge (kW)
-	double powerBatteryDischargeMax;///< The maximum sustained power the battery can discharge (kW)
+	double powerBatteryChargeMaxDC;  ///< The maximum sustained power the battery can charge (kWdc)
+	double powerBatteryDischargeMaxDC; ///< The maximum sustained power the battery can discharge (kWdc)
+	double powerBatteryChargeMaxAC;   ///< The maximum sustained power the battery can charge (kWac)
+	double powerBatteryDischargeMaxAC; ///< The maximum sustained power the battery can discharge (kWac)
 	double powerSystemLoss;        ///< The parasitic power loss in the system (kW)
 	double powerConversionLoss;    ///< The power loss due to conversions in the battery power electronics (kW)
 	double voltageSystem;		   ///< The system voltage
@@ -142,6 +144,8 @@ public:
 	double singlePointEfficiencyDCToAC;  ///< The conversion efficiency from DC power to AC power within the battery microinverter (0 - 1)
 	double singlePointEfficiencyDCToDC;  ///< The conversion efficiency from DC power to DC power within the battery management system (0 - 1)
 	SharedInverter * sharedInverter;	 ///< The shared inverter between the PV and battery for a DC-connected system
+	double inverterEfficiencyCutoff;     ///< The shared inverter efficiency at which to stop charging or discharging due to inefficient operation (0-1)
+
 
 	bool canPVCharge;	///< A boolean specifying whether the battery is allowed to charge from PV in the timestep
 	bool canClipCharge;	///< A boolean specifying whether the battery is allowed to charge from otherwise clipped PV in the timestep
