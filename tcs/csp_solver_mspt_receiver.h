@@ -87,15 +87,10 @@ private:
 
 	util::matrix_t<double> m_q_dot_inc;
 
-	util::matrix_t<double> m_T_s_guess;
 	util::matrix_t<double> m_T_s;
-	util::matrix_t<double> m_T_panel_out_guess;
 	util::matrix_t<double> m_T_panel_out;
-	util::matrix_t<double> m_T_panel_in_guess;
 	util::matrix_t<double> m_T_panel_in;
 	util::matrix_t<double> m_T_panel_ave;
-	util::matrix_t<double> m_T_panel_ave_guess;
-	util::matrix_t<double> m_T_film;
 	util::matrix_t<double> m_q_dot_conv;
 	util::matrix_t<double> m_q_dot_rad;
 	util::matrix_t<double> m_q_dot_loss;
@@ -115,6 +110,58 @@ private:
 	// track number of calls per timestep, reset = -1 in converged() call
 	int m_ncall;
 
+	struct s_steady_state_soln
+	{
+		int mode;					// Operating mode
+		bool rec_is_off;
+		int itermode;
+
+		double dni;					// DNI for this solution
+		double field_eff;			// Field efficiency for this solution
+
+		double od_control;          // Defocus control
+
+		double m_dot_salt;			// Salt mass flow per path (kg/s)
+		double m_dot_salt_tot;      // Total salt mass flow (kg/s)
+		double T_salt_cold_in;		// Cold salt inlet temperature (K)
+		double T_salt_hot;			// Receiver outlet T including piping loss (K)
+		double T_salt_hot_rec;      // Receiver outlet T before piping loss (K)
+		double T_salt_props;		// Temperature at which salt properties are evaluated
+
+		double u_salt;				// Salt velocity (m/s)
+		double f;					// Friction factor
+
+		double Q_inc_sum;			// Total absorbed solar energy (W)
+		double Q_conv_sum;			// Total convection loss (W)
+		double Q_rad_sum;			// Total radiation loss (W)
+		double Q_abs_sum;			// Total energy transferred to HTF, not including piping loss (W)
+		double Q_dot_piping_loss;   // Piping loss (W)
+		double Q_inc_min;			// Minimum absorbed solar energy on any panel (W)
+
+		double eta_therm;			// Receiver thermal efficiency (energy to HTF not including piping loss / Absorbed solar energy)
+
+		util::matrix_t<double> T_s;			// Average external tube T (K)
+		util::matrix_t<double> T_panel_out; // Panel HTF outlet T (K)
+		util::matrix_t<double> T_panel_in;	// Panel HTF inlet T (K)
+		util::matrix_t<double> T_panel_ave; // Panel average HTF T (k)
+
+		util::matrix_t<double> q_dot_inc;  // Panel absorbed solar energy (W)
+		util::matrix_t<double> q_dot_conv; // Panel convection loss (W)
+		util::matrix_t<double> q_dot_rad;  // Panel radiation loss (W)
+		util::matrix_t<double> q_dot_loss; // Panel convection + radiation loss (W)
+		util::matrix_t<double> q_dot_abs;  // Panel energy to HTF (W)
+
+		s_steady_state_soln()
+		{
+			od_control = std::numeric_limits<double>::quiet_NaN();
+			m_dot_salt = std::numeric_limits<double>::quiet_NaN();
+			T_salt_cold_in = std::numeric_limits<double>::quiet_NaN();
+			T_salt_hot = std::numeric_limits<double>::quiet_NaN();
+			T_salt_props = std::numeric_limits<double>::quiet_NaN();
+		}
+	};
+
+	//-------------------
 	//Transient model parameters
 	int m_startup_mode;
 	int m_startup_mode_initial;
@@ -184,7 +231,19 @@ private:
 		util::matrix_t<double> Tfeval, Tseval, qinc;
 	} param_inputs;
 
-	double calc_external_convection_coeff(const parameter_eval_inputs &pinputs, double Twall);
+
+
+	void initialize_transient_parameters();
+	util::matrix_t<double> calculate_flux_profiles(double dni, double field_eff, double od_control, const util::matrix_t<double> *flux_map_input);
+	void calculate_steady_state_soln(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, double tol);
+	void solve_for_mass_flow(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time);
+	void solve_for_mass_flow_and_defocus(s_steady_state_soln &soln, double m_dot_htf_max, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time);
+
+
+
+	double calc_external_convection_coeff(double T_amb, double P_amb, double wspd, double Twall);
+	void calc_thermal_loss(double Ts, double T_amb, double T_sky, double P_amb, double wspd, double &hext, double &qconv, double &qrad);
+	void calc_surface_temperature(double Tf, double qabs, double Rtube, double OD, double T_amb, double T_sky, double P_amb, double wspd, double &Tsguess);
 	void calc_header_size(double pdrop, double mdot, double rhof, double muf, double Lh, double &id_calc, double &th_calc, double &od_calc);
 	double interpolate(double x, const std::vector<double> &xarray, const std::vector<double> &yarray, int klow, int khigh);
 	double integrate(double xlow, double xhigh, const std::vector<double> &xarray, const std::vector<double> &yarray, int klow, int khigh);
@@ -207,6 +266,7 @@ private:
 		CIRCULATE,			// Full available power on receiver, HTF mass flow rate selected to hit target hot at SS
 		HOLD				// Models predict that startup has been completed, but minimum startup time has not yet been reached.  Fluid continues to circulate through the receiver.  
 	};
+
 
 public:
 	// Class to save messages for up stream classes

@@ -162,8 +162,8 @@ static var_info _cm_vtab_tcsmolten_salt[] = {
     { SSC_INPUT,     SSC_NUMBER, "piping_loss",                        "Thermal loss per meter of piping",                                                                                                        "Wt/m",         "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "piping_length_mult",                 "Piping length multiplier",                                                                                                                "",             "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "piping_length_const",                "Piping constant length",                                                                                                                  "m",            "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
-    { SSC_INPUT,     SSC_NUMBER, "piping_loss_coeff",                  "Wetted loss coefficient for riser or downcomer",                                                                                          "W/m2/K",       "",                                  "Tower and Receiver",                       "?=5.0",                                                            "",              ""},
-                                                                                                                                                                                                                                                                                                                                                                                              
+    
+
     { SSC_INPUT,     SSC_NUMBER, "is_rec_model_trans",                 "Formulate receiver model as transient?",                                                                                                  "",             "",                                  "Tower and Receiver",                       "?=0",                                                              "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "is_rec_startup_trans",               "Formulate receiver startup model as transient?",                                                                                          "",             "",                                  "Tower and Receiver",                       "?=0",                                                              "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "rec_tm_mult",                        "Receiver thermal mass multiplier",                                                                                                        "",             "",                                  "Tower and Receiver",                       "?=1.0",                                                            "",              ""},
@@ -1633,7 +1633,6 @@ public:
             trans_receiver->m_is_startup_transient = as_boolean("is_rec_startup_trans");
             trans_receiver->m_u_riser = as_double("u_riser");                       //[m/s]
             trans_receiver->m_th_riser = as_double("th_riser");                 //[mm]
-            trans_receiver->m_piping_loss_coeff = as_double("piping_loss_coeff");   //[W/m2/K]
             trans_receiver->m_rec_tm_mult = as_double("rec_tm_mult");
             trans_receiver->m_riser_tm_mult = as_double("riser_tm_mult");
             trans_receiver->m_downc_tm_mult = as_double("downc_tm_mult");
@@ -1649,7 +1648,7 @@ public:
                 throw exec_error("tcsmolten_salt", "Receiver startup from solved temperature profiles is only available when receiver transient startup model is enabled");
 
             trans_receiver->m_is_enforce_min_startup = as_boolean("is_rec_enforce_min_startup");
-            if (!trans_receiver->m_is_startup_from_solved_profile && !trans_receiver->m_is_enforce_min_startup)
+            if (as_boolean("is_rec_startup_trans") && !trans_receiver->m_is_startup_from_solved_profile && !trans_receiver->m_is_enforce_min_startup)
             {
                 log("Both 'is_rec_enforce_min_startup' and 'is_rec_startup_from_T_soln' were set to 'false'. Minimum startup time will always be enforced unless 'is_rec_startup_from_T_soln' is set to 'true'", SSC_WARNING);
                 trans_receiver->m_is_enforce_min_startup = 1;
