@@ -409,9 +409,9 @@ battstor::battstor(var_table& vt, bool setup_model, size_t nrec, double dt_hr, b
 					{
 						batt_vars->ec_use_realtime = vt.as_boolean("ur_en_ts_sell_rate");
 						if (!batt_vars->ec_use_realtime) {
-							batt_vars->ec_weekday_schedule = vt.as_matrix_unsigned_long("ur_ec_sched_weekday");
-							batt_vars->ec_weekend_schedule = vt.as_matrix_unsigned_long("ur_ec_sched_weekend");
-							batt_vars->ec_tou_matrix = vt.as_matrix("ur_ec_tou_mat");
+						batt_vars->ec_weekday_schedule = cm.as_matrix_unsigned_long("ur_ec_sched_weekday");
+						batt_vars->ec_weekend_schedule = cm.as_matrix_unsigned_long("ur_ec_sched_weekend");
+						batt_vars->ec_tou_matrix = cm.as_matrix("ur_ec_tou_mat");
 						}
 						else {
 							batt_vars->ec_realtime_buy = vt.as_vector_double("ur_ts_buy_rate");
@@ -520,12 +520,12 @@ battstor::battstor(var_table& vt, bool setup_model, size_t nrec, double dt_hr, b
 			}
 
 			// Battery bank replacement
-			if (vt.is_assigned("om_replacement_cost1"))
-			    batt_vars->batt_cost_per_kwh = vt.as_vector_double("om_replacement_cost1")[0];
+			if (cm.is_assigned("om_replacement_cost1"))
+			    batt_vars->batt_cost_per_kwh = cm.as_vector_double("om_replacement_cost1")[0];
             else
-                batt_vars->batt_cost_per_kwh = 0;
-			batt_vars->batt_replacement_option = vt.as_integer("batt_replacement_option");
-			batt_vars->batt_replacement_capacity = vt.as_double("batt_replacement_capacity");
+                batt_vars->batt_cost_per_kwh = 0.;
+            batt_vars->batt_replacement_option = cm.as_integer("batt_replacement_option");
+			batt_vars->batt_replacement_capacity = cm.as_double("batt_replacement_capacity");
 
 			if (batt_vars->batt_replacement_option == battery_t::REPLACE_BY_SCHEDULE) {
 				batt_vars->batt_replacement_schedule = vt.as_vector_integer("batt_replacement_schedule");
@@ -588,7 +588,7 @@ battstor::battstor(var_table& vt, bool setup_model, size_t nrec, double dt_hr, b
 			else
 			{
 				batt_vars->inverter_model = SharedInverter::NONE;
-				batt_vars->inverter_count = 0.96;
+				batt_vars->inverter_count = 1;
 				batt_vars->inverter_efficiency = batt_vars->batt_ac_dc_efficiency;
 				batt_vars->inverter_paco = batt_vars->batt_kw;
 			}
@@ -1208,8 +1208,8 @@ void battstor::check_replacement_schedule()
 		if (replace) {
 			double replacement_percent = batt_vars->batt_replacement_schedule_percent[year];
 			force_replacement(replacement_percent);
-		}
 	}
+}
 }
 void battstor::force_replacement(double replacement_percent)
 {
