@@ -48,7 +48,6 @@ public:
 
 public:
 
-    double Tdry_C;
 	// calculated values for the current timestep
 	double powerDC_kW;
 	double powerAC_kW;

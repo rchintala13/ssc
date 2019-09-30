@@ -117,7 +117,7 @@ set(SSC_SRC
 		sscapi.cpp
 		tckernel.cpp
 		vartab.cpp
-        cmod_pvsamv1_eqns.cpp cmod_pvsamv1_eqns.h)
+		)
 
 
 #####################################################################################################################
@@ -158,9 +158,6 @@ endif(MSVC)
 #####################################################################################################################
 
 add_library(ssc SHARED ${SSC_SRC})
-
-target_include_directories(ssc PRIVATE . ../splinter ../shared ../nlopt ../lpsolve ../solarpilot ../tcs ../ssc)
-
 set_target_properties(ssc
     PROPERTIES
     PREFIX ""

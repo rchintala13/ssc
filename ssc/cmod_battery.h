@@ -211,42 +211,32 @@ struct batt_variables
 	double batt_cycle_cost;
 };
 
-struct batt_time_settings
-{
-    int current_year;
-    int current_hr;
-    int current_step;
-
-};
 
 struct battstor
 {
 	/// Pass in the single-year number of records
-	battstor( var_table &vt, bool setup_model, size_t nrec, double dt_hr, batt_variables *batt_vars=0);
-
-    battstor(const battstor& orig);
-
+	battstor( compute_module &cm, bool setup_model, size_t nrec, double dt_hr, batt_variables *batt_vars=0);
 	void parse_configuration();
 
 	/// Initialize automated dispatch with lifetime vectors
-	void initialize_automated_dispatch(std::vector<ssc_number_t> pv= std::vector<ssc_number_t>(),
-									   std::vector<ssc_number_t> load= std::vector<ssc_number_t>(),
+	void initialize_automated_dispatch(std::vector<ssc_number_t> pv= std::vector<ssc_number_t>(), 
+									   std::vector<ssc_number_t> load= std::vector<ssc_number_t>(), 
 									   std::vector<ssc_number_t> cliploss= std::vector<ssc_number_t>());
 	~battstor();
-
 
 	void initialize_time(size_t year, size_t hour_of_year, size_t step);
 
 	/// Run the battery for the current timestep, given the PV power, load, and clipped power
-	void advance(var_table *vt, double P_gen, double V_gen=0, double P_load=0, double P_gen_clipped=0);
+	void advance(compute_module &cm, double P_pv, double V_pv=0, double P_load=0, double P_pv_clipped=0);
 
 	/// Given a DC connected battery, set the shared PV and battery invertr
 	void setSharedInverter(SharedInverter * sharedInverter);
 
-	void outputs_fixed(var_table *vt);
-	void outputs_topology_dependent();
-	void metrics();
+	void outputs_fixed(compute_module &cm);
+	void outputs_topology_dependent(compute_module &cm);
+	void metrics(compute_module &cm);
 	void update_grid_power(compute_module &cm, double P_gen_ac, double P_load_ac, size_t index);
+	void process_messages(compute_module &cm);
 
 	/*! Manual dispatch*/
 	bool manual_dispatch = false;
@@ -383,7 +373,5 @@ struct battstor
 	double outAverageRoundtripEfficiency;
 	double outPVChargePercent;
 };
-
-void process_messages(battstor* batt, compute_module* cm);
 
 #endif

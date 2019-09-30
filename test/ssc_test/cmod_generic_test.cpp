@@ -14,8 +14,7 @@ TEST_F(CMGeneric, SingleOwnerWithBattery_cmod_generic) {
 	for (size_t i = 0; i < dispatch_options.size(); i++) {
 		ssc_data_set_number(data, "batt_dispatch_choice", (ssc_number_t)dispatch_options[i]);
 		EXPECT_FALSE(run_module(data, "generic_system"));
-		EXPECT_FALSE(run_module(data, "battery"));		
-		EXPECT_FALSE(run_module(data, "grid"));
+		EXPECT_FALSE(run_module(data, "battery"));
 		EXPECT_FALSE(run_module(data, "singleowner"));
 	}
 	
@@ -27,7 +26,6 @@ TEST_F(CMGeneric, SingleOwnerWithBattery_cmod_generic) {
 		ssc_data_set_number(data, "batt_dispatch_choice", (ssc_number_t)dispatch_options[i]);
 		EXPECT_FALSE(run_module(data, "generic_system"));
 		EXPECT_FALSE(run_module(data, "battery"));
-		EXPECT_FALSE(run_module(data, "grid"));
 		EXPECT_FALSE(run_module(data, "singleowner"));
 	}
 

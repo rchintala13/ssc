@@ -27,7 +27,7 @@ protected:
 	double calc_sunrise, calc_sunset;
 	double e;
 
-	void SetUp() override {
+	void SetUp() {
 		// parameters
 		lat = 31.6340;
 		lon = 74.8723;

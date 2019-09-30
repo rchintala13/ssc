@@ -822,10 +822,7 @@ static var_info _cm_vtab_pvsamv1[] = {
 	{ SSC_OUTPUT, SSC_NUMBER, "annual_ac_wiring_loss", "AC wiring loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
 	{ SSC_OUTPUT, SSC_NUMBER, "annual_transmission_loss", "Transmission loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
 //	{ SSC_OUTPUT, SSC_NUMBER, "annual_ac_transformer_loss", "AC step-up transformer loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
-    { SSC_OUTPUT, SSC_NUMBER, "annual_dc_optimizer_loss", "DC power optimizer loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
-
-    // total loss diagram losses for single year, does not include lifetime losses
-    { SSC_OUTPUT, SSC_NUMBER, "annual_total_loss_percent", "PV System Loss, from Nominal POA to Net AC", "kWh", "", "Annual (Year 1)", "*", "", "" },
+	{ SSC_OUTPUT, SSC_NUMBER, "annual_dc_optimizer_loss", "DC power optimizer loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
 
 	/*
 	{ SSC_OUTPUT, SSC_NUMBER, "annual_ac_after_wiring_loss", "AC output after wiring loss", "kWh", "", "Annual (Year 1)", "*", "", "" },
@@ -913,11 +910,10 @@ cm_pvsamv1::cm_pvsamv1()
 	add_var_info(vtab_technology_outputs);
 	add_var_info(vtab_battery_inputs);
 	add_var_info(vtab_battery_outputs);
-	add_var_info(vtab_resilience_outputs);
 }
 
 	
-void cm_pvsamv1::exec( ) throw (general_error)
+void cm_pvsamv1::exec( ) throw (compute_module::general_error)
 {
 
 	/// Underlying class which parses the compute module structure and sets up model inputs and outputs
@@ -993,7 +989,7 @@ void cm_pvsamv1::exec( ) throw (general_error)
 
 	// setup battery model
 	bool en_batt = as_boolean("en_batt");
-	battstor batt(*m_vartab, en_batt, nrec, ts_hour);
+	battstor batt(*this, en_batt, nrec, ts_hour);
 	batt.setSharedInverter(sharedInverter);
 	int batt_topology = (en_batt == true ? batt.batt_vars->batt_topology : 0);
 	std::vector<ssc_number_t> p_invcliploss_full;
@@ -1978,7 +1974,7 @@ void cm_pvsamv1::exec( ) throw (general_error)
 					sharedInverter->calculateACPower(dcPower_kW, dcVoltagePerMppt[0], wf.tdry); //DC batteries not allowed with multiple MPPT, so can just use MPPT 1's voltage
 
 					// Run PV plus battery through sharedInverter, returns AC power
-					batt.advance(m_vartab, dcPower_kW, dcVoltagePerMppt[0], cur_load, sharedInverter->powerClipLoss_kW);
+					batt.advance(*this, dcPower_kW, dcVoltagePerMppt[0], cur_load, sharedInverter->powerClipLoss_kW);
 					acpwr_gross = batt.outGenPower[idx];
 				}
 				else if (PVSystem->Inverter->inverterType == INVERTER_PVYIELD) //PVyield inverter model not currently enabled for multiple MPPT
@@ -2055,7 +2051,7 @@ void cm_pvsamv1::exec( ) throw (general_error)
 			}
 		}
 
-        if (iyear == 0)
+		if (iyear == 0)
 		{
 			int year_idx = 0;
 			if (system_use_lifetime_output) {
@@ -2067,7 +2063,6 @@ void cm_pvsamv1::exec( ) throw (general_error)
 			}
 		}
 	}
-	process_messages(&batt, this);
 
 	// Initialize AC connected battery predictive control
 	if (en_batt && batt_topology == ChargeController::AC_CONNECTED)
@@ -2101,7 +2096,7 @@ void cm_pvsamv1::exec( ) throw (general_error)
 				{
 					batt.initialize_time(iyear, hour, jj);
 					batt.check_replacement_schedule();
-					batt.advance(m_vartab, PVSystem->p_systemACPower[idx], 0, p_load_full[idx]);
+					batt.advance(*this, PVSystem->p_systemACPower[idx], 0, p_load_full[idx]);
 					PVSystem->p_systemACPower[idx] = batt.outGenPower[idx];
 				}
 
@@ -2130,9 +2125,9 @@ void cm_pvsamv1::exec( ) throw (general_error)
 
 				idx++;
 			}
-		}
-	}
-	process_messages(&batt, this);
+		} 
+
+	} 
 	// Check the snow models and if neccessary report a warning
 	//  *This only needs to be done for subarray1 since all of the activated subarrays should 
 	//   have the same number of bad values
@@ -2474,24 +2469,7 @@ void cm_pvsamv1::exec( ) throw (general_error)
 	assign("annual_ac_perf_adj_loss_percent", var_data((ssc_number_t)percent));
 	sys_output *= (1.0 - percent / 100.0);
 
-	// total loss diagram losses for single-year simulation (life time losses not included)
-	std::vector<std::string> loss_components = {"annual_poa_shading_loss_percent", "annual_poa_soiling_loss_percent",
-                                             "annual_poa_cover_loss_percent", "annual_poa_rear_gain_percent",
-                                             "annual_dc_snow_loss_percent", "annual_dc_module_loss_percent",
-                                             "annual_dc_mppt_clip_loss_percent", "annual_dc_mismatch_loss_percent",
-                                             "annual_dc_diodes_loss_percent", "annual_dc_wiring_loss_percent",
-                                             "annual_dc_tracking_loss_percent", "annual_dc_nameplate_loss_percent",
-                                             "annual_dc_optimizer_loss_percent", "annual_dc_perf_adj_loss_percent",
-                                             "annual_dc_battery_loss_percent", "annual_ac_battery_loss_percent",
-                                             "annual_ac_inv_clip_loss_percent", "annual_ac_inv_pso_loss_percent",
-                                             "annual_ac_inv_pnt_loss_percent","annual_ac_inv_eff_loss_percent",
-                                             "annual_ac_wiring_loss_percent", "annual_xfmr_loss_percent",
-                                             "annual_ac_perf_adj_loss_percent"};
-	percent = 1.;
-	for (size_t i = 0; i < loss_components.size(); i++){
-	    percent *= (1. - as_number(loss_components[i])/100.);
-	}
-    assign("annual_total_loss_percent", var_data((ssc_number_t)(1.-percent)*100.));
+
 	// annual_ac_net = system_output
 
 #ifdef WITH_CHECKS

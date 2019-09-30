@@ -35,8 +35,6 @@ set(SHARED_SRC
 	lib_iec61853.cpp
 	lib_irradproc.cpp
 	lib_miniz.cpp
-	lib_mlmodel.cpp
-	lib_ondinv.cpp
 	lib_physics.cpp
 	lib_powerblock.cpp
 	lib_power_electronics.cpp
@@ -47,7 +45,6 @@ set(SHARED_SRC
 	lib_pvshade.cpp
 	lib_pv_shade_loss_mpp.cpp
 	lib_pvwatts.cpp
-	lib_resilience.cpp
 	lib_sandia.cpp
 	lib_shared_inverter.cpp
 	lib_snowmodel.cpp
@@ -60,10 +57,8 @@ set(SHARED_SRC
 	lib_wind_obos_cable_vessel.cpp
 	lib_windwakemodel.cpp
 	lib_windwatts.cpp
-
-	lib_storage_capacity.cpp
-	lib_storage_voltage.cpp
-		)
+	lib_mlmodel.cpp
+	lib_ondinv.cpp)
 
 
 #####################################################################################################################

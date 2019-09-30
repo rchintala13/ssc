@@ -47,8 +47,8 @@ class dispatch_t
 {
 public:
 
-	enum FOM_MODES { FOM_LOOK_AHEAD, FOM_LOOK_BEHIND, FOM_FORECAST, FOM_CUSTOM_DISPATCH, FOM_MANUAL, FOM_RESILIENCE };
-	enum BTM_MODES { LOOK_AHEAD, LOOK_BEHIND, MAINTAIN_TARGET, CUSTOM_DISPATCH, MANUAL, RESILIENCE };
+	enum FOM_MODES { FOM_LOOK_AHEAD, FOM_LOOK_BEHIND, FOM_FORECAST, FOM_CUSTOM_DISPATCH, FOM_MANUAL };
+	enum BTM_MODES { LOOK_AHEAD, LOOK_BEHIND, MAINTAIN_TARGET, CUSTOM_DISPATCH, MANUAL };
 	enum METERING { BEHIND, FRONT };
 	enum PV_PRIORITY { MEET_LOAD, CHARGE_BATTERY };
 	enum CURRENT_CHOICE { RESTRICT_POWER, RESTRICT_CURRENT, RESTRICT_BOTH };
@@ -211,7 +211,7 @@ public:
 	dispatch_manual_t(const dispatch_t& dispatch);
 
 	// copy members from dispatch to this
-	void copy(const dispatch_t * dispatch) override;
+	virtual void copy(const dispatch_t * dispatch);
 
 	virtual ~dispatch_manual_t(){};
 
@@ -255,11 +255,8 @@ protected:
 	double _percent_discharge;
 	double _percent_charge;
 
-	std::map<size_t, double> _percent_discharge_array;
+	std::map<size_t, double>  _percent_discharge_array;
 	std::map<size_t, double> _percent_charge_array;
-
-private:
-    friend class dispatch_resiliency;
 };
 
 /*! Class containing calculated grid power at a single time step */
@@ -502,9 +499,6 @@ protected:
 
 	/* Vector of length (24 hours * steps_per_hour) containing sorted grid calculation [P_grid, hour, step] */
 	grid_vec sorted_grid;
-
-private:
-    friend class dispatch_resiliency;
 };
 
 /*! Automated Front of Meter DC-connected battery dispatch */
@@ -602,7 +596,7 @@ protected:
 	std::vector<double> _ppa_price_rt_series;
 
 	/*! Utility rate information */
-	std::shared_ptr<UtilityRateCalculator> m_utilityRateCalculator;
+	std::unique_ptr<UtilityRateCalculator> m_utilityRateCalculator;
 
 	/*! Cost to replace battery per kWh */
 	double m_battReplacementCostPerKWH;
@@ -621,33 +615,7 @@ protected:
 	double revenueToGridCharge;
 	double revenueToClipCharge;
 	double revenueToDischarge;
-
-private:
-    friend class dispatch_resiliency;
 };
-
-/*! Dispatches the battery in the case where the grid is unavailable */
-class dispatch_resiliency : public dispatch_t {
-public:
-
-    explicit dispatch_resiliency(dispatch_automatic_behind_the_meter_t* orig);
-
-    explicit dispatch_resiliency(dispatch_manual_t* orig);
-
-protected:
-    double_vec battery_use;
-
-    double_vec load;
-
-    double_vec pv_gen;
-
-    void init_powerflow();
-
-    void set_pv_gen(double_vec pv);
-
-    void dispatch(size_t year, size_t hour_of_year, size_t step) override;
-
-    };
 
 /*! Battery metrics class */
 class battery_metrics_t

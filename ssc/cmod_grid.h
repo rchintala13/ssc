@@ -63,14 +63,15 @@ public:
 	gridVariables(compute_module & cm) : 
 		enable_interconnection_limit(cm.as_boolean("enable_interconnection_limit")),
 		grid_interconnection_limit_kW(cm.as_double("grid_interconnection_limit_kwac"))
+		
 	{
 
 
 		// System generation output, which is lifetime (if system_lifetime_output == true);
 		systemGenerationLifetime_kW = cm.as_vector_double("gen");
+		std::vector<double> load_year_one;
 		size_t n_rec_lifetime = systemGenerationLifetime_kW.size();
 		size_t n_rec_single_year;
-		std::vector<double> load_year_one;
 		if (cm.is_assigned("load")) {
 			load_year_one = cm.as_vector_double("load");
 		}

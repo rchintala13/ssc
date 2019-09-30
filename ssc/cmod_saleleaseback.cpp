@@ -195,10 +195,10 @@ static var_info _cm_vtab_saleleaseback[] = {
 	{ SSC_INPUT,        SSC_NUMBER,		"ppa_soln_max",            "PPA solution maximum ppa",                "cents/kWh",   "", "Sale Leaseback",         "?=100",                     "",            "" },
 	{ SSC_INPUT,        SSC_NUMBER,		"ppa_soln_max_iterations",            "PPA solution maximum number of iterations",                "",   "", "Sale Leaseback",         "?=100",                     "INTEGER,MIN=1",            "" },
 
-	{ SSC_INPUT,        SSC_ARRAY,     "ppa_price_input",			"Initial year PPA price",			"$/kWh",	 "",			  "DHF",			 "*",         "",      			"" },
-	{ SSC_INPUT,        SSC_NUMBER,     "ppa_escalation",           "PPA escalation",					"%",	 "",					  "DHF",             "?=0",                     "",      			"" },
-/* DHF construction period */
-	{ SSC_INPUT,       SSC_NUMBER,      "construction_financing_cost",	"Construction financing total",	"$",	 "",					  "DHF",			 "*",                         "",                             "" },
+	{ SSC_INPUT,        SSC_NUMBER,     "ppa_price_input",			"Initial year PPA price",			"$/kWh",	 "",			  "Sale Leaseback",			 "?=10",         "",      			"" },
+	{ SSC_INPUT,        SSC_NUMBER,     "ppa_escalation",           "PPA escalation",					"%",	 "",					  "Sale Leaseback",             "?=0",                     "",      			"" },
+/* construction period */
+	{ SSC_INPUT,       SSC_NUMBER,      "construction_financing_cost",	"Construction financing total",	"$",	 "",					  "Sale Leaseback",			 "*",                         "",                             "" },
 
 /* Capital Cost */
 	{ SSC_INPUT,        SSC_NUMBER,     "cost_dev_fee_percent",		"Development fee (% pre-financing cost)","%",	 "",					  "Sale Leaseback",             "?=3",					    "MIN=0,MAX=100",      			        "" },
@@ -1233,11 +1233,7 @@ public:
 
 
 
-		size_t count_ppa_price_input;
-		ssc_number_t* ppa_price_input = as_array("ppa_price_input", &count_ppa_price_input);
-		double ppa = 0;
-		if (count_ppa_price_input > 0) ppa = ppa_price_input[0] * 100.0;
-
+		double ppa = as_double("ppa_price_input")*100.0; // either initial guess for ppa_mode=1 or final ppa for ppa_mode=0
 		if (ppa_mode == 0) ppa = 0; // initial guess for target irr mode
 
 
@@ -1857,16 +1853,8 @@ public:
 		for (i=1; i<=nyears; i++)
 		{
 		// Project partial income statement
-			// energy_value = DHF Total PPA Revenue
-			if ((ppa_mode == 1) && (count_ppa_price_input > 1))
-			{
-				if (i <= (int)count_ppa_price_input)
-					cf.at(CF_ppa_price, i) = ppa_price_input[i - 1] * 100.0; // $/kWh to cents/kWh
-				else
-					cf.at(CF_ppa_price, i) = 0;
-			}
-			else
-				cf.at(CF_ppa_price, i) = ppa * pow(1 + ppa_escalation, i - 1); // ppa_mode==0 or single value 
+			// energy_value = Total PPA Revenue
+			cf.at(CF_ppa_price,i) = ppa * pow( 1 + ppa_escalation, i-1 ); // ppa_mode==1
 //			cf.at(CF_energy_value,i) = cf.at(CF_energy_net,i) * cf.at(CF_ppa_price,i) /100.0;
 			// dispatch
 			cf.at(CF_energy_value, i) = cf.at(CF_ppa_price, i) / 100.0 *(
@@ -2234,7 +2222,6 @@ public:
 			cf.at(CF_sponsor_ra,0) =
 				cf.at(CF_sponsor_lpra,0) +
 				cf.at(CF_sponsor_wcra,0) +
-				cf.at(CF_sponsor_receivablesra,0) +
 				cf.at(CF_sponsor_me1ra,0) +
 				cf.at(CF_sponsor_me2ra,0) +
 				cf.at(CF_sponsor_me3ra,0);
@@ -2267,8 +2254,7 @@ public:
 			cf.at(CF_sponsor_ra,nyears) =
 				cf.at(CF_sponsor_lpra,nyears) +
 				cf.at(CF_sponsor_wcra,nyears) +
-				cf.at(CF_sponsor_receivablesra, nyears) +
-				cf.at(CF_sponsor_me1ra, nyears) +
+				cf.at(CF_sponsor_me1ra,nyears) +
 				cf.at(CF_sponsor_me2ra,nyears) +
 				cf.at(CF_sponsor_me3ra,nyears);
 			cf.at(CF_sponsor_investing_activities,nyears) = cf.at(CF_sponsor_ra,nyears) + cf.at(CF_sponsor_mecs,nyears) - cf.at(CF_net_salvage_value,nyears);

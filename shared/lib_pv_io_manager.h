@@ -70,7 +70,7 @@ public:
 
 	void checkInit() const {
 		if (!init)
-			throw exec_error("PV IO Manager",
+			throw compute_module::exec_error("PV IO Manager", 
 				"Flag used without initialization.");
 	}
 

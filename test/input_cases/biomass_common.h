@@ -293,9 +293,6 @@ void biomass_commondata(ssc_data_t &data) {
 	ssc_data_set_number(data, "equip_reserve_depr_fed", 0);
 	ssc_data_set_number(data, "salvage_percentage", 0);
 	ssc_data_set_number(data, "ppa_soln_mode", 0);
-//	ssc_data_set_number(data, "ppa_price_input", 0.15999999642372131);
-	ssc_number_t ppa_price_input[1] = { 0.15999999642372131 };
-	ssc_data_set_array(data, "ppa_price_input", ppa_price_input, 1);
 	ssc_data_set_number(data, "ppa_price_input", 0.15999999642372131);
 	ssc_data_set_number(data, "ppa_escalation", 1);
 	ssc_data_set_number(data, "construction_financing_cost", 3645702.5);
