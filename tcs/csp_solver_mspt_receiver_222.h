@@ -133,20 +133,26 @@ private:
 
 		s_steady_state_soln()
 		{
-			od_control = std::numeric_limits<double>::quiet_NaN();
-			m_dot_salt = std::numeric_limits<double>::quiet_NaN();
-			T_salt_cold_in = std::numeric_limits<double>::quiet_NaN();
-			T_salt_hot = std::numeric_limits<double>::quiet_NaN();
-			T_salt_props = std::numeric_limits<double>::quiet_NaN();
+			clear();
 		}
+
+		void clear()
+		{
+			dni = od_control = field_eff = m_dot_salt = m_dot_salt_tot = T_salt_cold_in = T_salt_hot = T_salt_hot_rec = T_salt_props = std::numeric_limits<double>::quiet_NaN();
+			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = eta_therm = std::numeric_limits<double>::quiet_NaN();
+			mode = itermode = -1;
+			rec_is_off = true;
+		}
+
 	};
 
 
+	double get_clearsky(const C_csp_weatherreader::S_outputs &weather, double hour);
 	util::matrix_t<double> calculate_flux_profiles(double dni, double field_eff, double od_control, const util::matrix_t<double> *flux_map_input);
 	void calculate_steady_state_soln(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, double tol);
 	void solve_for_mass_flow(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time);
 	void solve_for_mass_flow_and_defocus(s_steady_state_soln &soln, double m_dot_htf_max, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time);
-
+	void solve_for_defocus_given_flow(s_steady_state_soln &soln, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time);
 
 public:
 	// Class to save messages for up stream classes
@@ -173,20 +179,25 @@ public:
 	int m_n_flux_x;
 	int m_n_flux_y;
 
-		// 4.17.15 twn: former TCS inputs, moved to member data because are constant throughout simulation
+	// 4.17.15 twn: former TCS inputs, moved to member data because are constant throughout simulation
 	double m_T_salt_hot_target;			//[C], convert to K in init() call
 	double m_hel_stow_deploy;			//[-]
 
-		// Added for csp_solver/tcs wrappers:
+	// Added for csp_solver/tcs wrappers:
 	int m_field_fl;
 	util::matrix_t<double> m_field_fl_props;	
 	int m_mat_tube;
 	int m_flow_type;
     int m_crossover_shift;
 
-		// ISCC specific
+	// ISCC specific
 	bool m_is_iscc;
 	int m_cycle_config;
+
+	// Flow control
+	double m_flow_control_frac;
+	int m_clearsky_model;
+	std::vector<double> m_clearsky_data;
 	
 	S_outputs outputs;
 

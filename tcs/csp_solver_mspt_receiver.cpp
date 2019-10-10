@@ -52,6 +52,9 @@
 #include "csp_solver_core.h"
 #include "sam_csp_util.h"
 
+#include "Ambient.h"
+#include "definitions.h"
+
 C_mspt_receiver::C_mspt_receiver()
 {    
     m_n_panels = -1;
@@ -156,6 +159,11 @@ C_mspt_receiver::C_mspt_receiver()
 	m_minimum_startup_time = std::numeric_limits<double>::quiet_NaN();
 	m_total_ramping_time_initial = std::numeric_limits<double>::quiet_NaN();
 	m_total_ramping_time = std::numeric_limits<double>::quiet_NaN();
+
+	m_flow_control_frac = std::numeric_limits<double>::quiet_NaN();
+	m_clearsky_model = 0;
+	m_clearsky_data.resize(0);
+
 
 }
 
@@ -323,6 +331,9 @@ void C_mspt_receiver::init()
 	}
     
 	m_ncall = -1;
+
+	m_Rtot_riser = 0.0;
+	m_Rtot_downc = 0.0;
 
 	initialize_transient_parameters();
 	
@@ -577,6 +588,8 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	c_p_coolant = rho_coolant = f = u_coolant = q_conv_sum = q_rad_sum = q_dot_inc_sum = q_dot_inc_min_panel = std::numeric_limits<double>::quiet_NaN();
 	double eta_therm, m_dot_salt_tot, T_salt_hot, m_dot_salt_tot_ss, T_salt_hot_rec;
 	eta_therm = m_dot_salt_tot = T_salt_hot = m_dot_salt_tot_ss = T_salt_hot_rec = std::numeric_limits<double>::quiet_NaN();
+	double clearsky = std::numeric_limits<double>::quiet_NaN();
+
 	bool rec_is_off = false;
 	bool rec_is_defocusing = false;
 	double field_eff_adj = 0.0;
@@ -629,17 +642,14 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 		m_dot_htf_max = fmin(m_m_dot_htf_max, m_dot_iscc_max);
 	}
     
-	//double q_abs_sum = 0.0;
-	//double err_od = 999.0;	// Reset error before iteration
-
-	// 15 continue -> TRNSYS command - replace
+	
 	if (field_eff < m_eta_field_iter_prev && m_od_control < 1.0)
 	{	// Suggests controller applied defocus, so reset *controller* defocus
 		m_od_control = fmin(m_od_control + (1.0 - field_eff / m_eta_field_iter_prev), 1.0);
 	}
 
-	// Set up initial steady state solution properties
-	s_steady_state_soln soln;
+
+	s_steady_state_soln soln, soln_actual, soln_clearsky;
 	soln.dni = I_bn;
 	soln.field_eff = field_eff;
 	soln.T_salt_cold_in = T_salt_cold_in;	// Cold salt inlet temperature (K)
@@ -648,10 +658,77 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	soln.itermode = m_itermode;
 	soln.rec_is_off = rec_is_off;
 
-	// Iterative solution for mass flow and defocus necessary to produce target outlet temperature
-	solve_for_mass_flow_and_defocus(soln, m_dot_htf_max, flux_map_input, weather, time);
+	clearsky = get_clearsky(weather, hour);
+	double clearsky_adj = std::fmax(clearsky, weather.m_beam);   // Set clear-sky DNI to actual DNI if actual value is higher
+
+
+	if (rec_is_off)
+		soln.q_dot_inc.resize_fill(m_n_panels, 0.0);
+
+	else
+	{
+
+		//--- Solve for mass flow at actual and/or clear-sky DNI extremes
+		if (m_flow_control_frac > 0.001 || fabs(I_bn - clearsky_adj) < 0.01)  // Solve for mass flow at actual DNI?
+		{
+			soln_actual = soln;  // Sets initial solution properties (inlet T, initial defocus control, etc.)
+			soln_actual.dni = I_bn;
+			solve_for_mass_flow_and_defocus(soln_actual, m_dot_htf_max, flux_map_input, weather, time);
+		}
+
+		if (m_flow_control_frac < 0.999 && fabs(I_bn - clearsky_adj) >= 0.01) // Solve for mass flow at clear-sky DNI?
+		{
+			soln_clearsky = soln;
+			soln_clearsky.dni = clearsky_adj;
+			solve_for_mass_flow_and_defocus(soln_clearsky, m_dot_htf_max, flux_map_input, weather, time);
+		}
+
+		//--- Set mass flow and calculate final solution
+		if (fabs(I_bn - clearsky_adj) < 0.01 || m_flow_control_frac > 0.999)  // Flow control based on actual DNI
+			soln = soln_actual;
+
+		else if (soln_clearsky.rec_is_off)    // Receiver can't operate at this time point 
+		{
+			soln.rec_is_off = true;
+			soln.q_dot_inc = soln_clearsky.q_dot_inc;
+		}
+
+		else if (m_flow_control_frac < 0.001)   // Flow control based only on clear-sky DNI
+		{
+			soln.m_dot_salt = soln_clearsky.m_dot_salt;
+			soln.rec_is_off = soln_clearsky.rec_is_off;
+			soln.q_dot_inc = calculate_flux_profiles(I_bn, field_eff, soln_clearsky.od_control, flux_map_input);  // Absorbed flux profiles at actual DNI and clear-sky defocus
+			calculate_steady_state_soln(soln, weather, time, 0.00025);  // Solve energy balances at clearsky mass flow rate and actual DNI conditions
+		}
+
+		else  // Receiver can operate and flow control based on a weighted average of clear-sky and actual DNI
+		{
+
+			if (soln_actual.rec_is_off)  // Receiver is off in actual DNI solution -> Set mass flow to the minimum value
+			{
+				soln_actual.m_dot_salt = m_f_rec_min * m_m_dot_htf_max;
+				soln_actual.od_control = 1.0;
+			}
+
+			soln.rec_is_off = false;
+			soln.m_dot_salt = m_flow_control_frac * soln_actual.m_dot_salt + (1.0 - m_flow_control_frac) * soln_clearsky.m_dot_salt;  // weighted average of clear-sky and actual DNI
+
+			if (soln_clearsky.od_control >= 0.9999)  // No defocus in either clear-sky or actual DNI solutions
+			{
+				soln.od_control = soln_clearsky.od_control;
+				soln.q_dot_inc = soln_actual.q_dot_inc;
+				calculate_steady_state_soln(soln, weather, time, 0.00025); // Solve energy balances at this mass flow rate and actual DNI conditions
+			}
+			else
+			{
+				soln.od_control = m_flow_control_frac * soln_actual.od_control + (1.0 - m_flow_control_frac) * soln_clearsky.od_control;
+				solve_for_defocus_given_flow(soln, flux_map_input, weather, time);     // Solve for defocus to achieve as close as possible to target outlet T with this mass flow and actual DNI conditions
+			}
+
+		}
+	}
 	
-	// Copy variables for use in the rest of the solution
+	// Set variables for use in the rest of the solution
 	rec_is_off = soln.rec_is_off;
 	m_mode = soln.mode;
 	m_itermode = soln.itermode;
@@ -662,12 +739,12 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	T_salt_hot = soln.T_salt_hot;
 	T_salt_hot_rec = soln.T_salt_hot_rec;
 	eta_therm = soln.eta_therm;
-	
+
 	u_coolant = soln.u_salt;
 	f = soln.f;
-	T_coolant_prop = (T_salt_hot + T_salt_cold_in) / 2.0;	
+	T_coolant_prop = (T_salt_hot + T_salt_cold_in) / 2.0;
 	c_p_coolant = field_htfProps.Cp(T_coolant_prop)*1000.0;
-	rho_coolant = field_htfProps.dens(T_coolant_prop,1.0);
+	rho_coolant = field_htfProps.dens(T_coolant_prop, 1.0);
 
 	q_conv_sum = soln.Q_conv_sum;
 	q_rad_sum = soln.Q_rad_sum;
@@ -685,6 +762,18 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	m_q_dot_loss = soln.q_dot_conv + soln.q_dot_rad;
 	m_q_dot_abs = soln.q_dot_abs;
 	m_q_dot_inc = soln.q_dot_inc;
+
+	// Calculate total absorbed solar energy and minimum absorbed per panel if needed
+	if (soln.Q_inc_sum != soln.Q_inc_sum)
+	{
+		q_dot_inc_sum = 0.0;
+		q_dot_inc_min_panel = m_q_dot_inc.at(0);
+		for (int i = 0; i < m_n_panels; i++)
+		{
+			q_dot_inc_sum += m_q_dot_inc.at(i);
+			q_dot_inc_min_panel = fmin(q_dot_inc_min_panel, m_q_dot_inc.at(i));
+		}
+	}
 
 
 	double DELTAP, Pres_D, W_dot_pump, q_thermal, q_startup;
@@ -1401,7 +1490,74 @@ void C_mspt_receiver::converged()
 }
 
 
-// Calculate flux profiles (interpolated to receiver panels at specified DNI) -> identical to C_mspt_receiver_222::calculate_flux_profiles
+// Get clear-sky DNI (uses calcualtions in SolarPILOT Ambient class) -> Same as C_mspt_receiver_222::get_clearsky
+double C_mspt_receiver::get_clearsky(const C_csp_weatherreader::S_outputs &weather, double hour)
+{
+	if (m_clearsky_model == -1)
+		return 0.0;
+
+	if (weather.m_solzen >= 90.0)
+		return 0.0;
+
+	std::vector<int> monthlen(12, 31);
+	for (int i = 1; i < 12; i++)
+		monthlen[i] = 30;
+	monthlen[1] = 28;
+
+	int doy = weather.m_day;
+	int m = weather.m_month - 1;
+	if (m > 0)
+	{
+		for (int j = 0; j < m; j++)
+			doy += monthlen[j];
+	}
+
+	Ambient A;
+	var_map V;
+	V.amb.latitude.val = weather.m_lat;
+	V.amb.longitude.val = weather.m_lon;
+	V.amb.time_zone.val = weather.m_tz;
+	V.amb.elevation.val = weather.m_elev;
+
+	double pres = weather.m_pres;
+	if (pres < 20. && pres > 1.0)  // Some weather files seem to have inconsistent pressure units... make sure that value is of correct order of magnitude
+		pres = weather.m_pres*100.;  // convert to mbar
+	V.amb.dpres.val = pres * 1.e-3 * 0.986923;  // Ambient pressure in atm
+	V.amb.del_h2o.val = exp(0.058*weather.m_tdew + 2.413);  // Correlation for precipitable water in mm H20 (from Choudhoury INTERNATIONAL JOURNAL OF CLIMATOLOGY, VOL. 16, 663-475 (1996))
+
+
+	double clearsky;
+	if (m_clearsky_model == 0)  // Use user-defined array
+	{
+		int nsteps = (int)m_clearsky_data.size();
+		double baseline_step = 8760. / double(nsteps);  // Weather file time step size (hr)
+		int step = (int)((hour - 1.e-6) / baseline_step);
+		step = std::min(step, nsteps - 1);
+		clearsky = m_clearsky_data.at(step);
+	}
+	else
+	{
+		std::string model;
+		if (m_clearsky_model == 1)
+			model = "Meinel model";
+		else if (m_clearsky_model == 2)
+			model = "Hottel model";
+		else if (m_clearsky_model == 3)     // Note, names of Allen/Moon model are reveresed in Ambient.cpp compared to Delsol2 documentation
+			model = "Moon model";
+		else if (m_clearsky_model == 4)
+			model = "Allen model";
+
+		V.amb.insol_type.val = model;
+		double zenith = weather.m_solzen * CSP::pi / 180.;
+		double azimuth = weather.m_solazi * CSP::pi / 180.;
+		clearsky = A.calcInsolation(V, azimuth, zenith, doy);
+		clearsky = std::fmax(0.0, clearsky);
+	}
+
+	return clearsky;
+}
+
+// Calculate flux profiles (interpolated to receiver panels at specified DNI) -> Same as C_mspt_receiver_222::calculate_flux_profiles
 util::matrix_t<double> C_mspt_receiver::calculate_flux_profiles(double dni, double field_eff, double od_control, const util::matrix_t<double> *flux_map_input)
 {
 	util::matrix_t<double> q_dot_inc, flux;
@@ -1521,7 +1677,7 @@ util::matrix_t<double> C_mspt_receiver::calculate_flux_profiles(double dni, doub
 	return q_dot_inc;
 }
 
-// Calculate steady state temperature and heat loss profiles for a given mass flow and incident flux  -> identical to C_mspt_receiver_222::calculate_steady_state_soln
+// Calculate steady state temperature and heat loss profiles for a given mass flow and incident flux -> Same as C_mspt_receiver_222::calculate_steady_state_soln
 void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, double tol)
 {
 
@@ -1541,6 +1697,8 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 	util::matrix_t<double> T_film(m_n_panels);
 
 	bool soln_exists = (soln.T_salt_hot == soln.T_salt_hot);
+
+	soln.m_dot_salt_tot = soln.m_dot_salt * m_n_lines;
 
 	// Set initial guess
 	double T_salt_hot_guess;
@@ -1614,15 +1772,15 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		double Nusselt_for = CSP::Nusselt_FC(ksD, Re_for);			//[-] S&K
 		double h_for = Nusselt_for * k_film / m_d_rec * m_hl_ffact;	//[W/m^2-K] Forced convection heat transfer coefficient
 
-		// Convection coefficient for external natural convection using Siebers & Kraabel
-		// Note: This relationship applies when the surrounding properties are evaluated at ambient conditions [S&K]
+																	// Convection coefficient for external natural convection using Siebers & Kraabel
+																	// Note: This relationship applies when the surrounding properties are evaluated at ambient conditions [S&K]
 		double beta = 1.0 / T_amb;													//[1/K] Volumetric expansion coefficient
 		double nu_amb = ambient_air.visc(T_amb) / ambient_air.dens(T_amb, P_amb);	//[m^2/s] Kinematic viscosity		
 
 
-		//for (int i = 0; i < m_n_panels; i++)   // Old convention to loop over panels in number order
-		//{
-			//int i_fp = i;
+																					//for (int i = 0; i < m_n_panels; i++)   // Old convention to loop over panels in number order
+																					//{
+																					//int i_fp = i;
 
 		for (int j = 0; j < m_n_lines; j++)   // Updated to loop over panels in flow order
 		{
@@ -1635,21 +1793,21 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 				double Nusselt_nat = 0.098*pow(Gr_nat, (1.0 / 3.0))*pow(soln.T_s.at(i_fp) / T_amb, -0.14);				//[-] Nusselt number
 				double h_nat = Nusselt_nat * ambient_air.cond(T_amb) / m_h_rec * m_hl_ffact;							//[W/m^-K] Natural convection coefficient
 
-				// Mixed convection
+																														// Mixed convection
 				double h_mixed = pow((pow(h_for, m_m_mixed) + pow(h_nat, m_m_mixed)), 1.0 / m_m_mixed)*4.0;		//(4.0) is a correction factor to match convection losses at Solar II (correspondance with G. Kolb, SNL)
 				soln.q_dot_conv.at(i_fp) = h_mixed * m_A_node*(soln.T_s.at(i_fp) - T_film.at(i_fp));			//[W] Convection losses per node
 
-				// Radiation from the receiver - Calculate the radiation node by node
+																												// Radiation from the receiver - Calculate the radiation node by node
 				soln.q_dot_rad.at(i_fp) = 0.5*CSP::sigma*m_epsilon*m_A_node*(2.0*pow(soln.T_s.at(i_fp), 4) - pow(T_amb, 4) - pow(T_sky, 4))*m_hl_ffact;	//[W] Total radiation losses per node
 				soln.q_dot_loss.at(i_fp) = soln.q_dot_rad.at(i_fp) + soln.q_dot_conv.at(i_fp);			//[W] Total overall losses per node
 				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp)*1000.0 - soln.q_dot_loss.at(i_fp);	//[W] Absorbed flux at each node
 
-				// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
+																										// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
 				double T_wall = (soln.T_s.at(i_fp) + soln.T_panel_ave.at(i_fp)) / 2.0;				//[K] The temperature at which the conductivity of the wall is evaluated
 				double k_tube = tube_material.cond(T_wall);											//[W/m-K] The conductivity of the wall
 				double R_tube_wall = m_th_tube / (k_tube*m_h_rec*m_d_rec*pow(CSP::pi, 2) / 2.0 / (double)m_n_panels);	//[K/W] The thermal resistance of the wall
 
-				// Calculations for the inside of the tube						
+																														// Calculations for the inside of the tube						
 				double mu_coolant = field_htfProps.visc(T_coolant_prop);							//[kg/m-s] Absolute viscosity of the coolant
 				double k_coolant = field_htfProps.cond(T_coolant_prop);								//[W/m-K] Conductivity of the coolant
 				double rho_coolant = field_htfProps.dens(T_coolant_prop, 1.0);						//[kg/m^3] Density of the coolant
@@ -1714,7 +1872,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		}  // End loop over flow paths
 
 
-		// Calculate average receiver outlet temperature
+		   // Calculate average receiver outlet temperature
 		double T_salt_hot_guess_sum = 0.0;
 		for (int j = 0; j < m_n_lines; j++)
 			T_salt_hot_guess_sum += T_panel_out_guess.at(m_flow_pattern.at(j, m_n_panels / m_n_lines - 1));		//[K] Update the calculated hot salt outlet temp
@@ -1746,14 +1904,12 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		if (fabs(err) < tol && q>0)
 			break;
 
-		if (soln.T_salt_hot < soln.T_salt_cold_in)
-		{
-			soln.mode = C_csp_collector_receiver::OFF;
-			soln.T_salt_hot = std::numeric_limits<double>::quiet_NaN();  // This solution won't be used in next guess
-			break;
-		}
-
 	} // End iterations
+
+
+	if (soln.T_salt_hot < soln.T_salt_cold_in)
+		soln.mode = C_csp_collector_receiver::OFF;
+
 
 	// Save overall energy loss
 	soln.Q_inc_sum = 0.0;
@@ -1785,7 +1941,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 
 }
 
-// Calculate mass flow rate needed to achieve target outlet temperature (m_T_salt_hot_target) given incident flux profiles -> identical to C_mspt_receiver_222::solve_for_mass_flow
+// Calculate mass flow rate needed to achieve target outlet temperature (m_T_salt_hot_target) given incident flux profiles -> Same as C_mspt_receiver_222::solve_for_mass_flow
 void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time)
 {
 
@@ -1851,13 +2007,17 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 
 
 		soln.m_dot_salt = m_dot_salt_guess;
-		double tolT = 0.00025;
+		double tolT = tol;
 		if (fabs(err) > 0.05)  // Allow larger temperature tolerance for early mass flow iterations
 			tolT = 0.005;
 
-		calculate_steady_state_soln(soln, weather, time, tolT);   // Solve steady state thermal model
+		calculate_steady_state_soln(soln, weather, time, tolT);   // Solve steady state thermal model 
 
 		err = (soln.T_salt_hot - m_T_salt_hot_target) / m_T_salt_hot_target;
+
+		if (soln.rec_is_off)  // SS soluion was unsuccessful or resulted in an infeasible exit temperature -> remove outlet T for solution to start next iteration from the default intial guess
+			soln.T_salt_hot = std::numeric_limits<double>::quiet_NaN();
+
 		if (fabs(err) > tol)
 		{
 			m_dot_salt_guess = (soln.Q_abs_sum - soln.Q_dot_piping_loss) / (m_n_lines*c_p_coolant*(m_T_salt_hot_target - soln.T_salt_cold_in));			//[kg/s]
@@ -1875,7 +2035,7 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 	return;
 }
 
-// Calculate mass flow rate and defocus needed to achieve target outlet temperature given incident flux profiles -> identical to C_mspt_receiver_222::solve_for_mass_flow_and_defocus
+// Calculate mass flow rate and defocus needed to achieve target outlet temperature given DNI -> Same as C_mspt_receiver_222::solve_for_mass_flow_and_defocus
 void C_mspt_receiver::solve_for_mass_flow_and_defocus(s_steady_state_soln &soln, double m_dot_htf_max, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time)
 {
 
@@ -1887,6 +2047,7 @@ void C_mspt_receiver::solve_for_mass_flow_and_defocus(s_steady_state_soln &soln,
 		if (soln.rec_is_off)
 			break;
 
+
 		soln.q_dot_inc = calculate_flux_profiles(soln.dni, soln.field_eff, soln.od_control, flux_map_input);  // Calculate flux profiles
 		solve_for_mass_flow(soln, weather, time);	// Iterative calculation of mass flow to produce target outlet temperature
 
@@ -1896,7 +2057,7 @@ void C_mspt_receiver::solve_for_mass_flow_and_defocus(s_steady_state_soln &soln,
 		double m_dot_salt_tot = soln.m_dot_salt * m_n_lines;
 		double m_dot_tube = soln.m_dot_salt / (double)m_n_t;		//[kg/s] The mass flow through each individual tube
 
-		// Limit the HTF mass flow rate to the maximum, if needed
+																	// Limit the HTF mass flow rate to the maximum, if needed
 		rec_is_defocusing = false;
 		if ((m_dot_salt_tot > m_dot_htf_max) || soln.itermode == 2)
 		{
@@ -1916,6 +2077,68 @@ void C_mspt_receiver::solve_for_mass_flow_and_defocus(s_steady_state_soln &soln,
 		}
 
 	} while (rec_is_defocusing);
+
+	return;
+}
+
+// Calculate defocus needed to maintain outlet temperature under the target value given DNI and mass flow -> Same as C_mspt_receiver_222::solve_for_defocus_given_flow
+void C_mspt_receiver::solve_for_defocus_given_flow(s_steady_state_soln &soln, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time)
+{
+
+	double Tprev, od, odprev, odlow, odhigh;
+	double tolT = 0.00025;
+	double urf = 0.8;
+
+	Tprev = odprev = odlow = std::numeric_limits<double>::quiet_NaN();
+	od = soln.od_control;
+	odhigh = 1.0;
+
+	od = odprev * (m_T_salt_hot_target - soln.T_salt_cold_in) / (Tprev - soln.T_salt_cold_in);
+
+	int q = 0;
+	while (q<50)
+	{
+		soln.od_control = od;
+		if (odprev != odprev)
+			soln.q_dot_inc = calculate_flux_profiles(soln.dni, soln.field_eff, soln.od_control, flux_map_input);
+		else
+			soln.q_dot_inc = soln.q_dot_inc * soln.od_control / odprev; // Calculate flux profiles (note flux is directly proportional to defocus control)
+		calculate_steady_state_soln(soln, weather, time, tolT);     // Solve steady state thermal model 
+
+		if (soln.od_control > 0.9999 && soln.T_salt_hot < m_T_salt_hot_target)  // Impossible for solution to achieve temperature target
+			break;
+		else if ((fabs(soln.T_salt_hot - m_T_salt_hot_target) / m_T_salt_hot_target) < tolT)
+			break;
+		else
+		{
+
+			if (soln.rec_is_off)
+			{
+				odlow = soln.od_control;
+				od = odlow + 0.5*(odhigh - odlow);
+			}
+			else if (odprev != odprev)
+			{
+				od = odprev * (m_T_salt_hot_target - soln.T_salt_cold_in) / (Tprev - soln.T_salt_cold_in);
+			}
+			else
+			{
+				double delta_od = (soln.T_salt_hot - m_T_salt_hot_target) / ((soln.T_salt_hot - Tprev) / (soln.od_control - odprev));
+				double od = soln.od_control - urf * delta_od;
+				if (od < odlow || od > odhigh)
+				{
+					if (odlow == odlow)
+						od = odlow + 0.5*(odhigh - odlow);
+					else
+						od = od * 0.95*odhigh;
+				}
+			}
+
+			odprev = soln.od_control;
+			Tprev = soln.T_salt_hot;
+		}
+		q++;
+	}
 
 	return;
 }

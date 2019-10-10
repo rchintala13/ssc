@@ -162,7 +162,10 @@ static var_info _cm_vtab_tcsmolten_salt[] = {
     { SSC_INPUT,     SSC_NUMBER, "piping_loss",                        "Thermal loss per meter of piping",                                                                                                        "Wt/m",         "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "piping_length_mult",                 "Piping length multiplier",                                                                                                                "",             "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "piping_length_const",                "Piping constant length",                                                                                                                  "m",            "",                                  "Tower and Receiver",                       "*",                                                                "",              ""},
-    
+	
+	{ SSC_INPUT,     SSC_NUMBER, "rec_clearsky_model",				   "Clearsky model: None = -1, User-defined data = 0, Meinel = 1; Hottel = 2; Allen = 3; Moon = 4",											  "",             "",                                  "Tower and Receiver",                       "?=-1",															   "",              ""},
+	{ SSC_INPUT,     SSC_ARRAY, "rec_clearsky_dni",					   "User-defined clear-sky DNI",																											  "W/m2",         "",                                  "Tower and Receiver",                       "rec_clearsky_model=0",											   "",              ""},
+	{ SSC_INPUT,     SSC_NUMBER, "rec_flow_control_fraction",          "Weighting fraction on actual DNI for receiver flow control (0 = clear-sky control, 1 = perfect control using actual DNI)",                "",             "",                                  "Tower and Receiver",                       "?=1.0",                                                            "",              ""},
 
     { SSC_INPUT,     SSC_NUMBER, "is_rec_model_trans",                 "Formulate receiver model as transient?",                                                                                                  "",             "",                                  "Tower and Receiver",                       "?=0",                                                              "",              ""},
     { SSC_INPUT,     SSC_NUMBER, "is_rec_startup_trans",               "Formulate receiver startup model as transient?",                                                                                          "",             "",                                  "Tower and Receiver",                       "?=0",                                                              "",              ""},
@@ -476,6 +479,8 @@ static var_info _cm_vtab_tcsmolten_salt[] = {
     { SSC_OUTPUT,    SSC_ARRAY,  "T_wall_rec_outlet",                  "Receiver outlet panel wall temperature at end of timestep",                                                                                   "C",            "",                                "CR",                                         "*",                                                                "",              ""},    
     { SSC_OUTPUT,    SSC_ARRAY,  "T_wall_riser",                       "Receiver riser wall temperature at end of timestep",                                                                                          "C",            "",                                "CR",                                         "*",                                                                "",              ""},    
     { SSC_OUTPUT,    SSC_ARRAY,  "T_wall_downcomer",                   "Receiver downcomer wall temperature at end of timestep",                                                                                      "C",            "",                                "CR",                                         "*",                                                                "",              ""},    
+
+	{ SSC_OUTPUT,    SSC_ARRAY,  "clearsky",							"Predicted clear-sky beam normal irradiance",																														 "W/m2",            "",                                "CR",                                         "*",                                                                "",              "" },
 
 
         // Power cycle outputs
@@ -1576,6 +1581,21 @@ public:
         }
 
         std::unique_ptr<C_pt_receiver> receiver;
+
+
+		ssc_number_t* csky;
+		if (as_integer("rec_clearsky_model") == 0)
+		{
+			size_t n_csky = 0;
+			csky = as_array("rec_clearsky_dni", &n_csky);
+			if (n_csky != n_steps_full)
+				throw exec_error("tcsmolten_salt", "Invalid clear-sky DNI data. Array must have " + util::to_string((int)n_steps_full) + " rows.");
+		}
+		
+		if (as_integer("rec_clearsky_model") == -1 && as_double("rec_flow_control_fraction")<0.999)
+			throw exec_error("tcsmolten_salt", "'rec_clearsky_model' must be specified when 'rec_flow_control_fraction' < 1.0.");
+
+
         if (!as_boolean("is_rec_model_trans") && !as_boolean("is_rec_startup_trans")) {
             //std::unique_ptr<C_mspt_receiver_222> ss_receiver = std::make_unique<C_mspt_receiver_222>();   // new to C++14
             std::unique_ptr<C_mspt_receiver_222> ss_receiver = std::unique_ptr<C_mspt_receiver_222>(new C_mspt_receiver_222());   // steady-state receiver
@@ -1600,6 +1620,15 @@ public:
             ss_receiver->m_T_salt_hot_target = as_double("T_htf_hot_des");
             ss_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             ss_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
+			ss_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
+			ss_receiver->m_clearsky_model = as_integer("rec_clearsky_model");
+
+			if (as_integer("rec_clearsky_model") == 0)
+			{
+				ss_receiver->m_clearsky_data.resize(n_steps_full);
+				for (size_t i = 0; i < n_steps_full; i++)
+					ss_receiver->m_clearsky_data.at(i) = (double)csky[i];
+			}
 
             receiver = std::move(ss_receiver);
         }
@@ -1627,6 +1656,16 @@ public:
             trans_receiver->m_T_salt_hot_target = as_double("T_htf_hot_des");
             trans_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             trans_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
+			trans_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
+			trans_receiver->m_clearsky_model = as_integer("rec_clearsky_model");
+
+			if (as_integer("rec_clearsky_model") == 0)
+			{
+				trans_receiver->m_clearsky_data.resize(n_steps_full);
+				for (size_t i = 0; i < n_steps_full; i++)
+					trans_receiver->m_clearsky_data.at(i) = (double)csky[i];
+			}
+
 
             // Inputs for transient receiver model
             trans_receiver->m_is_transient = as_boolean("is_rec_model_trans");
@@ -1706,6 +1745,8 @@ public:
         collector_receiver.mc_reported_outputs.assign(C_csp_mspt_collector_receiver::E_T_WALL_OUTLET, allocate("T_wall_rec_outlet", n_steps_fixed), n_steps_fixed);
         collector_receiver.mc_reported_outputs.assign(C_csp_mspt_collector_receiver::E_T_RISER, allocate("T_wall_riser", n_steps_fixed), n_steps_fixed);
         collector_receiver.mc_reported_outputs.assign(C_csp_mspt_collector_receiver::E_T_DOWNC, allocate("T_wall_downcomer", n_steps_fixed), n_steps_fixed);
+
+		collector_receiver.mc_reported_outputs.assign(C_csp_mspt_collector_receiver::E_CLEARSKY, allocate("clearsky", n_steps_fixed), n_steps_fixed);
 
 
         // Thermal energy storage 

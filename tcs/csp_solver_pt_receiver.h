@@ -116,14 +116,16 @@ public:
         double m_time_required_su;		//[s] time it took receiver to startup
         double m_q_dot_piping_loss;		//[MWt] thermal power lost from piping to surroundings
         double m_q_heattrace;			//[MWt-hr] Power required for heat tracing
-        double m_inst_T_salt_hot;
-        double m_max_T_salt_hot;
-        double m_min_T_salt_hot;
-        double m_max_rec_tout;
-        double m_Twall_inlet;
-        double m_Twall_outlet;
-        double m_Triser;
-        double m_Tdownc;
+        double m_inst_T_salt_hot;		//[C] Instantaneous HTF outlet T at the end of the time step
+        double m_max_T_salt_hot;		//[C] Maximum HTF outlet T during the time step
+        double m_min_T_salt_hot;		//[C] Minimum HTF outlet T during the time step
+        double m_max_rec_tout;			//[C] Maximum HTF T (at the receiver outlet before downcomer piping loss) during the time step
+        double m_Twall_inlet;			//[C] Average receiver wall temperature at inlet
+        double m_Twall_outlet;			//[C] Average receiver wall temperature at receiver outlet
+        double m_Triser;				//[C] Average riser wall temperature at inlet
+        double m_Tdownc;				//[C] Average downcomer wall temperature at outlet
+
+		double m_clearsky;				//[W/m2] Clear-sky DNI used in receiver flow control 
 
         S_outputs()
         {
@@ -136,6 +138,9 @@ public:
                 m_T_salt_hot = m_field_eff_adj = m_component_defocus = m_q_dot_rec_inc = m_q_startup =
                 m_dP_receiver = m_dP_total = m_vel_htf = m_T_salt_cold = m_m_dot_ss = m_q_dot_ss = m_f_timestep =
                 m_time_required_su = m_q_dot_piping_loss = m_q_heattrace = std::numeric_limits<double>::quiet_NaN();
+
+			m_inst_T_salt_hot = m_max_T_salt_hot = m_min_T_salt_hot = m_max_rec_tout = m_Twall_inlet = m_Twall_outlet = 
+				m_Triser = m_Tdownc = m_clearsky = std::numeric_limits<double>::quiet_NaN();
         }
     };
 
