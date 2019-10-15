@@ -789,10 +789,23 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 		m_m_dot_pc_max = m_dot_htf_ND_max * m_m_dot_pc_des;
 
 
+		// Call receiver model first to estimate outlet temperature (only needed when using receiver clear-sky flow control) -> if receiver is operating, it likely provides most of the power cycle thermal input
+		C_csp_collector_receiver::S_csp_cr_est_out est_out;
+		mc_cr_htf_state_in.m_temp = m_T_htf_cold_des - 273.15;
+		mc_collector_receiver.estimates(mc_weather.ms_outputs,
+			mc_cr_htf_state_in,
+			est_out,
+			mc_kernel.mc_sim_info);
+		double T_htf_hot_est = m_cycle_T_htf_hot_des - 273.15;
+		if (est_out.m_q_dot_avail >0.01)
+			T_htf_hot_est = est_out.m_T_htf_hot;
+
+
+
 		// Need to call power cycle at ambient temperature to get a guess of HTF return temperature
 		// If the return temperature is hotter than design, then the mass flow from the receiver will be
 		// bigger than expected
-		mc_pc_htf_state_in.m_temp = m_cycle_T_htf_hot_des - 273.15; //[C]
+		mc_pc_htf_state_in.m_temp = T_htf_hot_est; //m_cycle_T_htf_hot_des - 273.15; //[C]
 		mc_pc_htf_state_in.m_pres = m_cycle_P_hot_des;	//[kPa]
 		mc_pc_htf_state_in.m_qual = m_cycle_x_hot_des;	//[-]
 		mc_pc_inputs.m_m_dot = (std::min)(m_m_dot_pc_max, m_m_dot_pc_des);				//[kg/hr] no mass flow rate to power cycle
@@ -810,7 +823,7 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 		m_T_htf_pc_cold_est = mc_pc_out_solver.m_T_htf_cold;	//[C]
 		// Solve collector/receiver at steady state with design inputs and weather to estimate output
 		mc_cr_htf_state_in.m_temp = m_T_htf_pc_cold_est;	//[C]
-		C_csp_collector_receiver::S_csp_cr_est_out est_out;
+		//C_csp_collector_receiver::S_csp_cr_est_out est_out;
 		mc_collector_receiver.estimates(mc_weather.ms_outputs,
 			mc_cr_htf_state_in,
 			est_out,
@@ -1155,6 +1168,27 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 				}
 			} 
 		}
+
+
+		// Check if receiver can be defocused enough to stay under cycle+TES max thermal power and mass flow (this will usually be the case unless using clear-sky control or constrained cycle thermal input)
+		if (cr_operating_state == C_csp_collector_receiver::ON && q_dot_cr_on>0.0 && is_rec_su_allowed && m_is_tes)
+		{
+			double qpcmax = q_pc_max;
+			if (pc_operating_state == C_csp_power_cycle::OFF || C_csp_power_cycle::STARTUP)
+				qpcmax = q_dot_pc_su_max;
+
+			double qmax = (q_pc_max + q_dot_tes_ch) / (1.0 - tol_mode_switching);
+			double mmax = (m_m_dot_pc_max + m_dot_tes_ch_est) / (1.0 - tol_mode_switching);
+			if (q_dot_cr_on > qmax || m_dot_cr_on > mmax)
+			{
+				double df = fmin(qmax / q_dot_cr_on, mmax / m_dot_cr_on);
+				mc_collector_receiver.on(mc_weather.ms_outputs, mc_cr_htf_state_in, df, mc_cr_out_solver, mc_kernel.mc_sim_info);
+				if (mc_cr_out_solver.m_q_thermal == 0.0)  // Receiver solution wasn't successful 
+					is_rec_su_allowed = false;
+			}
+
+		}
+
 
 		while(!are_models_converged)		// Solve for correct operating mode and performance in following loop:
 		{
