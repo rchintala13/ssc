@@ -169,8 +169,8 @@ private:
 	//Transient model parameters
 	int m_startup_mode;
 	int m_startup_mode_initial;
-	int m_n_call_circ;
-	int m_n_call_circ_initial;
+	int m_n_call_fill;
+	int m_n_call_fill_initial;
 	double m_id_riser;				//[m]
 	double m_od_riser;				//[m]
 	double m_id_downc;				//[m]
@@ -182,6 +182,11 @@ private:
 	double m_minimum_startup_time; //s
 	double m_total_ramping_time; //s
 	double m_total_ramping_time_initial; //s
+	double m_total_fill_time;
+	double m_total_fill_time_initial;
+	double m_total_preheat_time;
+	double m_total_preheat_time_initial;
+	int m_crossover_index;
 
 
 	int m_n_elem;
@@ -217,6 +222,7 @@ private:
 		double timeavg_piping_loss;				// Time-averaged thermal loss from piping [W]
 		double timeavg_qthermal;				// Average thermal power sent to power cycle or storage during the time step [W]
 		double timeavg_qnet;					// Average net thermal power absorbed by the receiver during the time step [W]
+		double timeavg_qheattrace;				// Average heat trace thermal input during the time step [W]
 		double timeavg_eta_therm;				// Time-averaged thermal efficiency of the receiver 
 		double time_min_tout;					// Time at which minimum downcomer outlet T occurs
 		double tube_temp_inlet;					// Receiver inlet tube wall temperature at the end of the the time step [K]
@@ -232,7 +238,7 @@ private:
 	{
 		double T_amb, T_sky, pres, wspd, c_htf, rho_htf, mu_htf, k_htf, Pr_htf, mflow_tot, finitial, ffinal, ramptime;
 		std::vector<double> tm;
-		util::matrix_t<double> Tfeval, Tseval, qinc;
+		util::matrix_t<double> Tfeval, Tseval, qinc, qheattrace;
 	} param_inputs;
 
 
@@ -263,12 +269,15 @@ private:
 	void calc_extreme_outlet_values(double tstep, int flowid, const transient_inputs &tinputs, util::matrix_t<double> &textreme, util::matrix_t<double> &tpt);
 	void update_pde_parameters(bool use_initial_t, parameter_eval_inputs &pinputs, transient_inputs &tinputs);
 	void solve_transient_model(double tstep, double allowable_Trise, parameter_eval_inputs &pinputs, transient_inputs &tinputs, transient_outputs &toutputs);
-	void solve_transient_startup_model(parameter_eval_inputs &pinputs, transient_inputs &tinputs, int startup_mode, double target_temperature, double min_time, double max_time, transient_outputs &toutputs, double &startup_time, double &energy);
+	void solve_transient_startup_model(parameter_eval_inputs &pinputs, transient_inputs &tinputs, int startup_mode, double target_temperature, double min_time, double max_time, transient_outputs &toutputs, double &startup_time, double &energy, double &parasitic);
+	void set_heattrace_power(bool is_maintain_T, double Ttarget, double time, parameter_eval_inputs &pinputs, transient_inputs &tinputs);
 
 	enum startup_modes
 	{
 		HEAT_TRACE = 0,		// No flux on receiver, riser/downcomer heated with heat tracing
 		PREHEAT,			// Low flux on receiver, no HTF flow
+		PREHEAT_HOLD,		// Preheat temperature requirement has been met, but not time requirement.  Low flux on receiver, no HTF flow
+		FILL,				// User-defined time delay for filling the receiver/piping
 		CIRCULATE,			// Full available power on receiver, HTF mass flow rate selected to hit target hot at SS
 		HOLD				// Models predict that startup has been completed, but minimum startup time has not yet been reached.  Fluid continues to circulate through the receiver.  
 	};
@@ -311,6 +320,8 @@ public:
 	double m_downc_tm_mult;			//[-], downcomer thermal mass multiplier
 	double m_heat_trace_power;		//[kW/m], convert to [W/m] in init()
 	double m_tube_flux_preheat;		//[kW/m2]
+	double m_min_preheat_time;      //[hr], convert to [s] in init(), Minimum time required in preheat startup stage
+	double m_fill_time;				//[hr], convert to [s] in init(), Time requirement to fill receiver
 	double m_flux_ramp_time;		//[hr], convert to [s] in init()
 	double m_preheat_target;		//[C], convert to [k] in init()
 	double m_startup_target;		//[C], convert to [k] in init()
