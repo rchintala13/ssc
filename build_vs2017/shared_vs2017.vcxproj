@@ -78,6 +78,7 @@
     <ClCompile Include="..\shared\lib_pv_incidence_modifier.cpp" />
     <ClCompile Include="..\shared\lib_pv_io_manager.cpp" />
     <ClCompile Include="..\shared\lib_pv_shade_loss_mpp.cpp" />
+    <ClCompile Include="..\shared\lib_resilience.cpp" />
     <ClCompile Include="..\shared\lib_sandia.cpp" />
     <ClCompile Include="..\shared\lib_shared_inverter.cpp" />
     <ClCompile Include="..\shared\lib_snowmodel.cpp" />
@@ -157,7 +158,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4456; 4244</DisableSpecificWarnings>
       <AdditionalOptions>/w44191 /w44242  /w44263 /w44264 /w44265 /w44266 /w44302 /w44388 /w44826 /w44905 /w44906 /w44928 %(AdditionalOptions)</AdditionalOptions>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>

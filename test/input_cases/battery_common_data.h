@@ -5,15 +5,14 @@
 #include "code_generator_utilities.h"
 
 namespace {
-	const char * SSCDIR_BATT = std::getenv("SSCDIR");
 	char load_profile_path_batt[256];
 	char temperature_path[256];
 	char temperature_path_30min[256];
 	char gen_path[256];
-	int nb1 = sprintf(gen_path, "%s/test/input_cases/battery_data/lifetime_gen.csv", SSCDIR_BATT);
-	int nb2 = sprintf(load_profile_path_batt, "%s/test/input_cases/general_data/commercial_load.csv", SSCDIR_BATT);
-	int nb3 = sprintf(temperature_path, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_60min.csv", SSCDIR_BATT);
-	int nb4 = sprintf(temperature_path_30min, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_30min.csv", SSCDIR_BATT);
+	int nb1 = sprintf(gen_path, "%s/test/input_cases/battery_data/lifetime_gen.csv", SSCDIR);
+	int nb2 = sprintf(load_profile_path_batt, "%s/test/input_cases/general_data/commercial_load.csv", SSCDIR);
+	int nb3 = sprintf(temperature_path, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_60min.csv", SSCDIR);
+	int nb4 = sprintf(temperature_path_30min, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_30min.csv", SSCDIR);
 
 
 	/**
@@ -48,8 +47,11 @@ namespace {
 		ssc_data_set_number(data, "batt_computed_bank_capacity", 612.2591552734375);
 		ssc_data_set_number(data, "batt_current_charge_max", 3037);
 		ssc_data_set_number(data, "batt_current_discharge_max", 3037);
-		ssc_data_set_number(data, "batt_power_charge_max", 153.06478881835938);
-		ssc_data_set_number(data, "batt_power_discharge_max", 153.06478881835938);
+		ssc_data_set_number(data, "batt_inverter_efficiency_cutoff", 90);
+		ssc_data_set_number(data, "batt_power_charge_max_kwdc", 153.06478881835938);
+		ssc_data_set_number(data, "batt_power_discharge_max_kwdc", 153.06478881835938);
+		ssc_data_set_number(data, "batt_power_charge_max_kwac", 153.06478881835938);
+		ssc_data_set_number(data, "batt_power_discharge_max_kwac", 153.06478881835938);
 		ssc_data_set_number(data, "batt_voltage_choice", 0);
 		ssc_data_set_number(data, "batt_Vfull", 4.0999999046325684);
 		ssc_data_set_number(data, "batt_Vexp", 4.0500001907348633);
@@ -83,6 +85,8 @@ namespace {
 		ssc_data_set_number(data, "batt_replacement_capacity", 0);
 		ssc_number_t p_batt_replacement_schedule[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
 		ssc_data_set_array(data, "batt_replacement_schedule", p_batt_replacement_schedule, 10);
+		ssc_number_t p_batt_replacement_schedule_percent[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 100 };
+		ssc_data_set_array(data, "batt_replacement_schedule_percent", p_batt_replacement_schedule_percent, 10);
 		ssc_number_t p_replacement_cost[1] = { 68 };
 		ssc_data_set_array(data, "om_replacement_cost1", p_replacement_cost, 1);
 		ssc_data_set_number(data, "batt_mass", 3102.717041015625);

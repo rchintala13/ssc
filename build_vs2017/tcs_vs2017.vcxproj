@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -15,11 +15,13 @@
     <ClCompile Include="..\tcs\cavity_calcs.cpp" />
     <ClCompile Include="..\tcs\co2_compressor_library.cpp" />
     <ClCompile Include="..\tcs\csp_dispatch.cpp" />
+    <ClCompile Include="..\tcs\csp_radiator.cpp" />
     <ClCompile Include="..\tcs\csp_solver_core.cpp" />
     <ClCompile Include="..\tcs\csp_solver_gen_collector_receiver.cpp" />
     <ClCompile Include="..\tcs\csp_solver_lf_dsg_collector_receiver.cpp" />
     <ClCompile Include="..\tcs\csp_solver_mono_eq_methods.cpp" />
     <ClCompile Include="..\tcs\csp_solver_mspt_collector_receiver.cpp" />
+    <ClCompile Include="..\tcs\csp_solver_mspt_receiver.cpp" />
     <ClCompile Include="..\tcs\csp_solver_mspt_receiver_222.cpp" />
     <ClCompile Include="..\tcs\csp_solver_pc_gen.cpp" />
     <ClCompile Include="..\tcs\csp_solver_pc_heat_sink.cpp" />
@@ -27,7 +29,9 @@
     <ClCompile Include="..\tcs\csp_solver_pc_sco2.cpp" />
     <ClCompile Include="..\tcs\csp_solver_pc_steam_heat_sink.cpp" />
     <ClCompile Include="..\tcs\csp_solver_pt_heliostatfield.cpp" />
+    <ClCompile Include="..\tcs\csp_solver_pt_receiver.cpp" />
     <ClCompile Include="..\tcs\csp_solver_pt_sf_perf_interp.cpp" />
+    <ClCompile Include="..\tcs\csp_solver_stratified_tes.cpp" />
     <ClCompile Include="..\tcs\csp_solver_tou_block_schedules.cpp" />
     <ClCompile Include="..\tcs\csp_solver_trough_collector_receiver.cpp" />
     <ClCompile Include="..\tcs\csp_solver_two_tank_tes.cpp" />
@@ -98,10 +102,12 @@
     <ClInclude Include="..\tcs\cavity_calcs.h" />
     <ClInclude Include="..\tcs\co2_compressor_library.h" />
     <ClInclude Include="..\tcs\csp_dispatch.h" />
+    <ClInclude Include="..\tcs\csp_radiator.h" />
     <ClInclude Include="..\tcs\csp_solver_core.h" />
     <ClInclude Include="..\tcs\csp_solver_gen_collector_receiver.h" />
     <ClInclude Include="..\tcs\csp_solver_lf_dsg_collector_receiver.h" />
     <ClInclude Include="..\tcs\csp_solver_mspt_collector_receiver.h" />
+    <ClInclude Include="..\tcs\csp_solver_mspt_receiver.h" />
     <ClInclude Include="..\tcs\csp_solver_mspt_receiver_222.h" />
     <ClInclude Include="..\tcs\csp_solver_pc_gen.h" />
     <ClInclude Include="..\tcs\csp_solver_pc_heat_sink.h" />
@@ -109,7 +115,9 @@
     <ClInclude Include="..\tcs\csp_solver_pc_sco2.h" />
     <ClInclude Include="..\tcs\csp_solver_pc_steam_heat_sink.h" />
     <ClInclude Include="..\tcs\csp_solver_pt_heliostatfield.h" />
+    <ClInclude Include="..\tcs\csp_solver_pt_receiver.h" />
     <ClInclude Include="..\tcs\csp_solver_pt_sf_perf_interp.h" />
+    <ClInclude Include="..\tcs\csp_solver_stratified_tes.h" />
     <ClInclude Include="..\tcs\csp_solver_tou_block_schedules.h" />
     <ClInclude Include="..\tcs\csp_solver_trough_collector_receiver.h" />
     <ClInclude Include="..\tcs\csp_solver_two_tank_tes.h" />
@@ -182,7 +190,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)\..\tcs\FIT_props;$(SolutionDir)\..\nlopt;$(SolutionDir)\..\shared;$(SolutionDir)\..\solarpilot;$(SolutionDir)\..\lpsolve;$(SolutionDir)\..\splinter</AdditionalIncludeDirectories>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
@@ -196,7 +204,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -204,7 +212,7 @@
       <PreprocessorDefinitions>LPWINAPP;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4456;4458</DisableSpecificWarnings>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

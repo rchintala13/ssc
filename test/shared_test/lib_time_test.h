@@ -1,6 +1,8 @@
 #ifndef __LIB_TIME_TEST_H__
 #define __LIB_TIME_TEST_H__
 
+#include <math.h>
+
 #include "lib_util.h"
 #include <gtest/gtest.h>
 #include <vector>
@@ -16,6 +18,11 @@ protected:
 	std::vector<float> lifetime30min;
 	std::vector<float> singleyear60min;
 	std::vector<float> singleyear30min;
+
+	size_t * sched;
+	util::matrix_t<size_t> schedule;
+	std::vector<double> sched_values = { 0.1, 0.0, 0.3 };
+	double multiplier = 2.0;
 
 
 	void SetUp()
@@ -46,6 +53,19 @@ protected:
 			singleyear30min.push_back(100 * sin(i));
 		}
 
+		sched = new size_t[24 * 12];
+
+		size_t i = 0;
+		for (size_t m = 0; m < 12; m++) {
+			for (size_t h = 0; h < 24; h++) {
+				sched[i] = 1;
+				if (h > 11 && h < 19) {
+					sched[i] = 3;
+				}
+				i++;
+			}
+		}
+		schedule.assign(sched, 12, 24);
 
 	}
 };

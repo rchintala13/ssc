@@ -3,7 +3,7 @@
 #include "cmod_generic_test.h"
 
 /// Test Generic System with Battery for SingleOwner PPA
-TEST_F(CMGeneric, SingleOwnerWithBattery) {
+TEST_F(CMGeneric, SingleOwnerWithBattery_cmod_generic) {
 
 	generic_singleowner_battery_60min(data);
 
@@ -31,13 +31,13 @@ TEST_F(CMGeneric, SingleOwnerWithBattery) {
 
 	// Test with incorrect combo of data sizes
 	ssc_data_set_number(data, "batt_dispatch_choice", 3);
-	set_array(data, "batt_custom_dispatch", generictest::batt_dispatch_path_30min, 8760);
+	set_array(data, "batt_custom_dispatch", generictest::batt_dispatch_path_30min, 8760*2); // 8760 or 8760 * 3 fails with execution error on Linux and windows
 	EXPECT_FALSE(run_module(data, "generic_system"));
-	EXPECT_TRUE(run_module(data, "battery", false));
+	EXPECT_FALSE(run_module(data, "battery"));
 }
 
 /// Test Generic System with Battery for various timesteps
-TEST_F(CMGeneric, CommercialWithBattery) {
+TEST_F(CMGeneric, CommercialWithBattery_cmod_generic) {
 
 	generic_commerical_battery_60min(data);
 	

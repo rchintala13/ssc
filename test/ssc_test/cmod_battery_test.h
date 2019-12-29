@@ -7,7 +7,7 @@
 #include "core.h"
 #include "sscapi.h"
 
-#include "../ssc/vartab.h"
+#include "vartab.h"
 #include "../ssc/common.h"
 #include "../input_cases/code_generator_utilities.h"
 #include "../input_cases/battery_common_data.h"
@@ -17,7 +17,7 @@
  * Eventually a method can be written to write this data to a vartable so that lower-level methods of pvsamv1 can be tested
  * For now, this uses the SSCAPI interfaces to run the compute module and compare results
  */
-class CMBattery : public ::testing::Test {
+class CMBattery_cmod_battery : public ::testing::Test {
 
 public:
 
@@ -49,6 +49,19 @@ public:
 		int n;
 		calculated_array = ssc_data_get_array(data, const_cast<char *>(name.c_str()), &n);
 	}
+	bool runWithOutOfMemoryCheck()
+    {
+        ssc_module_t module;
+        module = ssc_module_create("battery");
+        bool success = ssc_module_exec(module, data);
+        if (!success) {
+            std::string mod_name = "battery";
+            std::string reason = "Out of memory during resilience simulations. Try reducing analysis years, increasing critical load or reducing PV generation.";
+            EXPECT_EQ(ssc_module_log(module, 0, nullptr, nullptr), "exec fail(" + mod_name + "): " + reason);
+            return false;
+        }
+        return true;
+    }
 };
 
 #endif 

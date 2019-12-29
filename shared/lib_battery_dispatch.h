@@ -1,51 +1,24 @@
-/*******************************************************************************************************
-*  Copyright 2017 Alliance for Sustainable Energy, LLC
-*
-*  NOTICE: This software was developed at least in part by Alliance for Sustainable Energy, LLC
-*  (“Alliance”) under Contract No. DE-AC36-08GO28308 with the U.S. Department of Energy and the U.S.
-*  The Government retains for itself and others acting on its behalf a nonexclusive, paid-up,
-*  irrevocable worldwide license in the software to reproduce, prepare derivative works, distribute
-*  copies to the public, perform publicly and display publicly, and to permit others to do so.
-*
-*  Redistribution and use in source and binary forms, with or without modification, are permitted
-*  provided that the following conditions are met:
-*
-*  1. Redistributions of source code must retain the above copyright notice, the above government
-*  rights notice, this list of conditions and the following disclaimer.
-*
-*  2. Redistributions in binary form must reproduce the above copyright notice, the above government
-*  rights notice, this list of conditions and the following disclaimer in the documentation and/or
-*  other materials provided with the distribution.
-*
-*  3. The entire corresponding source code of any redistribution, with or without modification, by a
-*  research entity, including but not limited to any contracting manager/operator of a United States
-*  National Laboratory, any institution of higher learning, and any non-profit organization, must be
-*  made publicly available under this license for as long as the redistribution is made available by
-*  the research entity.
-*
-*  4. Redistribution of this software, without modification, must refer to the software by the same
-*  designation. Redistribution of a modified version of this software (i) may not refer to the modified
-*  version by the same designation, or by any confusingly similar designation, and (ii) must refer to
-*  the underlying software originally provided by Alliance as “System Advisor Model” or “SAM”. Except
-*  to comply with the foregoing, the terms “System Advisor Model”, “SAM”, or any confusingly similar
-*  designation may not be used to refer to any modified version of this software or any modified
-*  version of the underlying software originally provided by Alliance without the prior written consent
-*  of Alliance.
-*
-*  5. The name of the copyright holder, contributors, the United States Government, the United States
-*  Department of Energy, or any of their employees may not be used to endorse or promote products
-*  derived from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
-*  IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-*  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER,
-*  CONTRIBUTORS, UNITED STATES GOVERNMENT OR UNITED STATES DEPARTMENT OF ENERGY, NOR ANY OF THEIR
-*  EMPLOYEES, BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-*  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-*  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-*  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-*  THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*******************************************************************************************************/
+/**
+BSD-3-Clause
+Copyright 2019 Alliance for Sustainable Energy, LLC
+Redistribution and use in source and binary forms, with or without modification, are permitted provided 
+that the following conditions are met :
+1.	Redistributions of source code must retain the above copyright notice, this list of conditions 
+and the following disclaimer.
+2.	Redistributions in binary form must reproduce the above copyright notice, this list of conditions 
+and the following disclaimer in the documentation and/or other materials provided with the distribution.
+3.	Neither the name of the copyright holder nor the names of its contributors may be used to endorse 
+or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER, CONTRIBUTORS, UNITED STATES GOVERNMENT OR UNITED STATES 
+DEPARTMENT OF ENERGY, NOR ANY OF THEIR EMPLOYEES, BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, 
+OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT 
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include <memory>
 
@@ -74,8 +47,8 @@ class dispatch_t
 {
 public:
 
-	enum FOM_MODES { FOM_LOOK_AHEAD, FOM_LOOK_BEHIND, FOM_FORECAST, FOM_CUSTOM_DISPATCH, FOM_MANUAL };
-	enum BTM_MODES { LOOK_AHEAD, LOOK_BEHIND, MAINTAIN_TARGET, CUSTOM_DISPATCH, MANUAL };
+	enum FOM_MODES { FOM_LOOK_AHEAD, FOM_LOOK_BEHIND, FOM_FORECAST, FOM_CUSTOM_DISPATCH, FOM_MANUAL, FOM_RESILIENCE };
+	enum BTM_MODES { LOOK_AHEAD, LOOK_BEHIND, MAINTAIN_TARGET, CUSTOM_DISPATCH, MANUAL, RESILIENCE };
 	enum METERING { BEHIND, FRONT };
 	enum PV_PRIORITY { MEET_LOAD, CHARGE_BATTERY };
 	enum CURRENT_CHOICE { RESTRICT_POWER, RESTRICT_CURRENT, RESTRICT_BOTH };
@@ -89,8 +62,10 @@ public:
 		int current_choice,
 		double Ic_max,
 		double Id_max,
-		double Pc_max,
-		double Pd_max,
+		double Pc_max_kwdc,
+		double Pd_max_kwdc,
+		double Pc_max_kwac,
+		double Pd_max_kwac,
 		double t_min,
 		int dispatch_mode,
 		int meter_position);
@@ -165,7 +140,7 @@ protected:
 	// Controllers
 	virtual	void SOC_controller();
 	void switch_controller();
-	double current_controller(double battery_voltage);
+	double current_controller(double power_kw);
 	bool restrict_current(double &I);
 	bool restrict_power(double &I);
 
@@ -216,8 +191,10 @@ public:
 		int current_choice,
 		double Ic_max,
 		double Id_max,
-		double Pc_max,
-		double Pd_max,
+		double Pc_max_kwdc,
+		double Pd_max_kwdc,
+		double Pc_max_kwac,
+		double Pd_max_kwac,
 		double t_min,
 		int mode,
 		int meterPosition,
@@ -234,14 +211,14 @@ public:
 	dispatch_manual_t(const dispatch_t& dispatch);
 
 	// copy members from dispatch to this
-	virtual void copy(const dispatch_t * dispatch);
+	void copy(const dispatch_t * dispatch) override;
 
 	virtual ~dispatch_manual_t(){};
 
 	/// Public API to run the battery dispatch model for the current timestep, given the system power, and optionally the electric load, amount of system clipping, or specified battery power
 	virtual void dispatch(size_t year,
 		size_t hour_of_year,
-		size_t step);
+		size_t step) override;
 
 protected:
 
@@ -264,8 +241,8 @@ protected:
 		std::map<size_t, double> dm_percent_discharge,
 		std::map<size_t, double> dm_percent_gridcharge);
 
-	void SOC_controller();
-	bool check_constraints(double &I, size_t count);
+	void SOC_controller() override;
+	bool check_constraints(double &I, size_t count) override;
 
 	util::matrix_t < size_t > _sched;
 	util::matrix_t < size_t > _sched_weekend;
@@ -278,8 +255,9 @@ protected:
 	double _percent_discharge;
 	double _percent_charge;
 
-	std::map<size_t, double>  _percent_discharge_array;
+	std::map<size_t, double> _percent_discharge_array;
 	std::map<size_t, double> _percent_charge_array;
+
 };
 
 /*! Class containing calculated grid power at a single time step */
@@ -329,8 +307,10 @@ public:
 		int current_choice,
 		double Ic_max,
 		double Id_max,
-		double Pc_max,
-		double Pd_max,
+		double Pc_max_kwdc,
+		double Pd_max_kwdc,
+		double Pc_max_kwac,
+		double Pd_max_kwac,
 		double t_min,
 		int dispatch_mode,
 		int pv_dispatch,
@@ -444,8 +424,10 @@ public:
 		int current_choice,
 		double Ic_max,
 		double Id_max,
-		double Pc_max,
-		double Pd_max,
+		double Pc_max_kwdc,
+		double Pd_max_kwdc,
+		double Pc_max_kwac,
+		double Pd_max_kwac,
 		double t_min,
 		int dispatch_mode,
 		int pv_dispatch,
@@ -458,7 +440,7 @@ public:
 		bool can_fuelcell_charge
 		);
 
-	virtual ~dispatch_automatic_behind_the_meter_t(){};
+	~dispatch_automatic_behind_the_meter_t() override {};
 
 	// deep copy constructor (new memory), from dispatch to this
 	dispatch_automatic_behind_the_meter_t(const dispatch_t& dispatch);
@@ -518,6 +500,7 @@ protected:
 
 	/* Vector of length (24 hours * steps_per_hour) containing sorted grid calculation [P_grid, hour, step] */
 	grid_vec sorted_grid;
+
 };
 
 /*! Automated Front of Meter DC-connected battery dispatch */
@@ -540,8 +523,10 @@ public:
 		int current_choice,
 		double Ic_max,
 		double Id_max,
-		double Pc_max,
-		double Pd_max,
+		double Pc_max_kwdc,
+		double Pd_max_kwdc,
+		double Pc_max_kwac,
+		double Pd_max_kwac,
 		double t_min,
 		int dispatch_mode,
 		int pv_dispatch,
@@ -556,9 +541,7 @@ public:
 		double battReplacementCostPerkWh,
 		int battCycleCostChoice,
 		double battCycleCost,
-		std::vector<double> ppa_factors,
-		util::matrix_t<size_t> ppa_weekday_schedule,
-		util::matrix_t<size_t> ppa_weekend_schedule,
+		std::vector<double> ppa_price_series_dollar_per_kwh,
 		UtilityRate * utilityRate,
 		double etaPVCharge,
 		double etaGridCharge,
@@ -581,8 +564,11 @@ public:
 	/// Compute the updated power to send to the battery over the next N hours
 	void update_dispatch(size_t hour_of_year, size_t step, size_t lifetimeIndex);
 
-	/// Update cliploss data
+	/// Update cliploss data [kW]
 	void update_cliploss_data(double_vec P_cliploss);
+
+	/// Pass in the PV power forecast [kW]
+	virtual void update_pv_data(std::vector<double> P_pv_dc);
 
 	/*! Calculate the cost to cycle */
 	void costToCycle();
@@ -590,23 +576,29 @@ public:
 	/*! Return the calculated cost to cycle ($/cycle)*/
 	double cost_to_cycle() { return m_cycleCost; }
 
+	/// Return benefit calculations
+	double benefit_charge(){ return revenueToPVCharge; }
+	double benefit_gridcharge() { return revenueToGridCharge; }
+	double benefit_clipcharge() { return revenueToClipCharge; }
+	double benefit_discharge() { return revenueToDischarge; }
+
+
 protected:
 	
 	void init_with_pointer(const dispatch_automatic_front_of_meter_t* tmp);
-	void setup_cost_vector(util::matrix_t<size_t> ppa_weekday_schedule, util::matrix_t<size_t> ppa_weekend_schedule);
+	void setup_cost_forecast_vector();
 
-	/*! Full clipping loss due to AC power limits vector */
+	/*! Full clipping loss due to AC power limits vector [kW] */
 	double_vec _P_cliploss_dc;
 
 	/*! Inverter AC power limit */
 	double _inverter_paco;
 
-	/*! PPA cost and time-of-delivery factors */
-	std::vector<double> _ppa_factors;
-	std::vector<double> _ppa_cost_vector;
+	/*! Market real time and forecast prices */
+	std::vector<double> _forecast_price_rt_series;
 
 	/*! Utility rate information */
-	std::unique_ptr<UtilityRateCalculator> m_utilityRateCalculator;
+	std::shared_ptr<UtilityRateCalculator> m_utilityRateCalculator;
 
 	/*! Cost to replace battery per kWh */
 	double m_battReplacementCostPerKWH;
@@ -619,6 +611,12 @@ protected:
 	double m_etaPVCharge;
 	double m_etaGridCharge;
 	double m_etaDischarge;
+
+	/* Computed benefits to charge, discharge, gridcharge, clipcharge */
+	double revenueToPVCharge;
+	double revenueToGridCharge;
+	double revenueToClipCharge;
+	double revenueToDischarge;
 };
 
 /*! Battery metrics class */

@@ -4,10 +4,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "sscapi.h"
+#include "../ssc/sscapi.h"
 #include "../ssc/core.h"
 #include <string>
 #include <type_traits>
+
+namespace {
+	static const char * SSCDIR = std::getenv("SSCDIR");
+}
 
 static ssc_bool_t my_handler(ssc_module_t p_mod, ssc_handler_t p_handler, int action,
 	float f0, float f1, const char *s0, const char *s1, void *user_data)
@@ -103,7 +107,7 @@ static int run_module(ssc_data_t & data, std::string module_name, bool printErro
 	module = ssc_module_create(const_cast<char*>(module_name.c_str()));
 	if (NULL == module)
 	{
-		if (printErrors){ printf("error: could not create 'pvsamv1' module.");}
+		if (printErrors){ printf("error: could not create module.");}
 		return -1;
 	}
 
@@ -129,6 +133,7 @@ static int run_module(ssc_data_t & data, std::string module_name, bool printErro
 	}
 	
 	ssc_module_free(module);
+	module = nullptr;
 	return 0;
 }
 
