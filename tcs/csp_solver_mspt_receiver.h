@@ -278,7 +278,7 @@ private:
 		PREHEAT,			// Low flux on receiver, no HTF flow
 		PREHEAT_HOLD,		// Preheat temperature requirement has been met, but not time requirement.  Low flux on receiver, no HTF flow
 		FILL,				// User-defined time delay for filling the receiver/piping
-		CIRCULATE,			// Full available power on receiver, HTF mass flow rate selected to hit target hot at SS
+		CIRCULATE,			// Full available power on receiver (with optional ramp rate), HTF mass flow rate selected to hit target hot at steady state
 		HOLD				// Models predict that startup has been completed, but minimum startup time has not yet been reached.  Fluid continues to circulate through the receiver.  
 	};
 
@@ -324,7 +324,7 @@ public:
 	double m_fill_time;				//[hr], convert to [s] in init(), Time requirement to fill receiver
 	double m_flux_ramp_time;		//[hr], convert to [s] in init()
 	double m_preheat_target;		//[C], convert to [k] in init()
-	double m_startup_target;		//[C], convert to [k] in init()
+	double m_startup_target_delta;	//[C], (target temperature at end of startup) - (steady state temperature at current conditions )
 	double m_initial_temperature;	//[C], convert to [K] in init()
 
 	bool m_is_startup_from_solved_profile;  // Begin receiver startup from solved temperature profiles?

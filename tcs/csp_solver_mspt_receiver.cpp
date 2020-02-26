@@ -144,7 +144,7 @@ C_mspt_receiver::C_mspt_receiver()
 	m_flux_ramp_time = std::numeric_limits<double>::quiet_NaN();
 	m_heat_trace_power = std::numeric_limits<double>::quiet_NaN();
 	m_preheat_target = std::numeric_limits<double>::quiet_NaN();
-	m_startup_target = std::numeric_limits<double>::quiet_NaN();
+	m_startup_target_delta = std::numeric_limits<double>::quiet_NaN();
 
 	m_is_startup_from_solved_profile = 0;
 	m_is_enforce_min_startup = 1;
@@ -359,7 +359,6 @@ void C_mspt_receiver::initialize_transient_parameters()
 	m_heat_trace_power *= 1.e3;		//[W/m-length], Heat trace power for riser and downcomer during startup, convert from input in [kW/m]
 	m_initial_temperature += 273.15;  // Initial temperature at start of simulation [K], convert from input in [C]
 	m_preheat_target += 273.15;		// Preheat target temperature [K], convert from input in [C]
-	m_startup_target += 273.15;		// Startup target temperature [K], convert from input in [C]
 
 	// HTF properties
 	double rho_htf_inlet = field_htfProps.dens(m_T_htf_cold_des, 1.0);
@@ -916,7 +915,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 				{
 					double heat_trace_target = m_T_htf_cold_des;	// Target riser/downcomer temperature at end of heat_trace startup stage [K]
 					double preheat_target = m_preheat_target;		// Target tube temperature at end of preheat startup stage [K]
-					double circulation_target = m_startup_target;	// Target HTF outlet temperature at end of circulation startup stage [K]
+					double circulation_target = T_salt_hot + m_startup_target_delta;	// Target HTF outlet temperature at end of circulation startup stage [K]
 					double m_dot_salt_startup = 0.0;				// Mass flow rate during startup 
 					double Tmin_rec, Tmin_piping;
 					Tmin_rec = Tmin_piping = std::numeric_limits<double>::quiet_NaN();
@@ -1429,6 +1428,8 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 
 	}
 
+	outputs.m_clearsky = clearsky;  // W/m2
+
     ms_outputs = outputs;
 
 	m_eta_field_iter_prev = field_eff;	//[-]
@@ -1519,6 +1520,7 @@ void C_mspt_receiver::off(const C_csp_weatherreader::S_outputs &weather,
 		
 	}
 
+	outputs.m_clearsky = get_clearsky(weather, sim_info.ms_ts.m_time / 3600.);  // clear-sky DNI (set to actual DNI if actual DNI is higher than computed clear-sky value)
     ms_outputs = outputs;
 
 	return;
@@ -1849,15 +1851,15 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		double Nusselt_for = CSP::Nusselt_FC(ksD, Re_for);			//[-] S&K
 		double h_for = Nusselt_for * k_film / m_d_rec * m_hl_ffact;	//[W/m^2-K] Forced convection heat transfer coefficient
 
-																	// Convection coefficient for external natural convection using Siebers & Kraabel
-																	// Note: This relationship applies when the surrounding properties are evaluated at ambient conditions [S&K]
+		// Convection coefficient for external natural convection using Siebers & Kraabel
+		// Note: This relationship applies when the surrounding properties are evaluated at ambient conditions [S&K]
 		double beta = 1.0 / T_amb;													//[1/K] Volumetric expansion coefficient
 		double nu_amb = ambient_air.visc(T_amb) / ambient_air.dens(T_amb, P_amb);	//[m^2/s] Kinematic viscosity		
 
 
-																					//for (int i = 0; i < m_n_panels; i++)   // Old convention to loop over panels in number order
-																					//{
-																					//int i_fp = i;
+		//for (int i = 0; i < m_n_panels; i++)   // Old convention to loop over panels in number order
+		//{
+			//int i_fp = i;
 
 		for (int j = 0; j < m_n_lines; j++)   // Updated to loop over panels in flow order
 		{
@@ -1870,21 +1872,21 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 				double Nusselt_nat = 0.098*pow(Gr_nat, (1.0 / 3.0))*pow(soln.T_s.at(i_fp) / T_amb, -0.14);				//[-] Nusselt number
 				double h_nat = Nusselt_nat * ambient_air.cond(T_amb) / m_h_rec * m_hl_ffact;							//[W/m^-K] Natural convection coefficient
 
-																														// Mixed convection
+				// Mixed convection
 				double h_mixed = pow((pow(h_for, m_m_mixed) + pow(h_nat, m_m_mixed)), 1.0 / m_m_mixed)*4.0;		//(4.0) is a correction factor to match convection losses at Solar II (correspondance with G. Kolb, SNL)
 				soln.q_dot_conv.at(i_fp) = h_mixed * m_A_node*(soln.T_s.at(i_fp) - T_film.at(i_fp));			//[W] Convection losses per node
 
-																												// Radiation from the receiver - Calculate the radiation node by node
+				// Radiation from the receiver - Calculate the radiation node by node
 				soln.q_dot_rad.at(i_fp) = 0.5*CSP::sigma*m_epsilon*m_A_node*(2.0*pow(soln.T_s.at(i_fp), 4) - pow(T_amb, 4) - pow(T_sky, 4))*m_hl_ffact;	//[W] Total radiation losses per node
 				soln.q_dot_loss.at(i_fp) = soln.q_dot_rad.at(i_fp) + soln.q_dot_conv.at(i_fp);			//[W] Total overall losses per node
 				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp)*1000.0 - soln.q_dot_loss.at(i_fp);	//[W] Absorbed flux at each node
 
-																										// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
+				// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
 				double T_wall = (soln.T_s.at(i_fp) + soln.T_panel_ave.at(i_fp)) / 2.0;				//[K] The temperature at which the conductivity of the wall is evaluated
 				double k_tube = tube_material.cond(T_wall);											//[W/m-K] The conductivity of the wall
 				double R_tube_wall = m_th_tube / (k_tube*m_h_rec*m_d_rec*pow(CSP::pi, 2) / 2.0 / (double)m_n_panels);	//[K/W] The thermal resistance of the wall
 
-																														// Calculations for the inside of the tube						
+				// Calculations for the inside of the tube						
 				double mu_coolant = field_htfProps.visc(T_coolant_prop);							//[kg/m-s] Absolute viscosity of the coolant
 				double k_coolant = field_htfProps.cond(T_coolant_prop);								//[W/m-K] Conductivity of the coolant
 				double rho_coolant = field_htfProps.dens(T_coolant_prop, 1.0);						//[kg/m^3] Density of the coolant
@@ -1949,7 +1951,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		}  // End loop over flow paths
 
 
-		   // Calculate average receiver outlet temperature
+		// Calculate average receiver outlet temperature
 		double T_salt_hot_guess_sum = 0.0;
 		for (int j = 0; j < m_n_lines; j++)
 			T_salt_hot_guess_sum += T_panel_out_guess.at(m_flow_pattern.at(j, m_n_panels / m_n_lines - 1));		//[K] Update the calculated hot salt outlet temp
