@@ -50,6 +50,8 @@ static C_csp_reported_outputs::S_output_info S_output_info[] =
 	{ C_csp_mspt_collector_receiver::E_T_DOWNC, C_csp_reported_outputs::TS_LAST },
 
 	{ C_csp_mspt_collector_receiver::E_CLEARSKY, C_csp_reported_outputs::TS_WEIGHTED_AVE },
+	{ C_csp_mspt_collector_receiver::E_Q_DOT_THERMAL_CSKY_SS, C_csp_reported_outputs::TS_WEIGHTED_AVE },
+	{ C_csp_mspt_collector_receiver::E_Q_DOT_THERMAL_SS, C_csp_reported_outputs::TS_WEIGHTED_AVE },
 	csp_info_invalid	
 };
 
@@ -185,7 +187,8 @@ void C_csp_mspt_collector_receiver::call(const C_csp_weatherreader::S_outputs &w
 	mc_reported_outputs.value(E_T_DOWNC, mc_pt_receiver.ms_outputs.m_Tdownc);	//[C]
 
 	mc_reported_outputs.value(E_CLEARSKY, mc_pt_receiver.ms_outputs.m_clearsky);
-
+	mc_reported_outputs.value(E_Q_DOT_THERMAL_CSKY_SS, mc_pt_receiver.ms_outputs.m_Q_thermal_csky_ss); //[MWt]
+	mc_reported_outputs.value(E_Q_DOT_THERMAL_SS, mc_pt_receiver.ms_outputs.m_Q_thermal_ss); //[MWt]
 }
 
 void C_csp_mspt_collector_receiver::off(const C_csp_weatherreader::S_outputs &weather,
@@ -247,6 +250,8 @@ void C_csp_mspt_collector_receiver::off(const C_csp_weatherreader::S_outputs &we
 	mc_reported_outputs.value(E_T_DOWNC, mc_pt_receiver.ms_outputs.m_Tdownc);	//[C]
 
 	mc_reported_outputs.value(E_CLEARSKY, mc_pt_receiver.ms_outputs.m_clearsky);
+	mc_reported_outputs.value(E_Q_DOT_THERMAL_CSKY_SS, mc_pt_receiver.ms_outputs.m_Q_thermal_csky_ss); //[MWt]
+	mc_reported_outputs.value(E_Q_DOT_THERMAL_SS, mc_pt_receiver.ms_outputs.m_Q_thermal_ss); //[MWt]
 
 	return;
 }

@@ -117,6 +117,7 @@ private:
 		double Q_abs_sum;			// Total energy transferred to HTF, not including piping loss (W)
 		double Q_dot_piping_loss;   // Piping loss (W)
 		double Q_inc_min;			// Minimum absorbed solar energy on any panel (W)
+		double Q_thermal;			// Thermal power delivered to fluid (less piping loss) (W)
 
 		double eta_therm;			// Receiver thermal efficiency (energy to HTF not including piping loss / Absorbed solar energy)
 
@@ -139,7 +140,8 @@ private:
 		void clear()
 		{
 			dni = od_control = field_eff = m_dot_salt = m_dot_salt_tot = T_salt_cold_in = T_salt_hot = T_salt_hot_rec = T_salt_props = std::numeric_limits<double>::quiet_NaN();
-			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = eta_therm = std::numeric_limits<double>::quiet_NaN();
+			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = Q_thermal = eta_therm = std::numeric_limits<double>::quiet_NaN();
+
 			mode = itermode = -1;
 			rec_is_off = true;
 		}

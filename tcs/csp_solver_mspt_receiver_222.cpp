@@ -413,24 +413,28 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 
 	else
 	{
-
 		//--- Solve for mass flow at actual and/or clear-sky DNI extremes
-		if (m_flow_control_frac > 0.001 || fabs(I_bn - clearsky_adj) < 0.01)  // Solve for mass flow at actual DNI?
+		if (m_flow_control_frac > 0.0|| fabs(I_bn - clearsky_adj) < 0.001)  // Solve for mass flow at actual DNI?
 		{
 			soln_actual = soln;  // Sets initial solution properties (inlet T, initial defocus control, etc.)
 			soln_actual.dni = I_bn;
 			solve_for_mass_flow_and_defocus(soln_actual, m_dot_htf_max, flux_map_input, weather, time); 
 		}
 
-		if (m_flow_control_frac < 0.999 && fabs(I_bn - clearsky_adj) >= 0.01) // Solve for mass flow at clear-sky DNI?
+		if (m_flow_control_frac < 1.0) // Solve for mass flow at clear-sky DNI?
 		{
-			soln_clearsky = soln;  
-			soln_clearsky.dni = clearsky_adj;
-			solve_for_mass_flow_and_defocus(soln_clearsky, m_dot_htf_max, flux_map_input, weather, time);
+			if (fabs(I_bn - clearsky_adj) < 0.001)
+				soln_clearsky = soln_actual;
+			else
+			{
+				soln_clearsky = soln;
+				soln_clearsky.dni = clearsky_adj;
+				solve_for_mass_flow_and_defocus(soln_clearsky, m_dot_htf_max, flux_map_input, weather, time);
+			}
 		}
 
 		//--- Set mass flow and calculate final solution
-		if (fabs(I_bn - clearsky_adj) < 0.01 || m_flow_control_frac > 0.999)  // Flow control based on actual DNI
+		if (fabs(I_bn - clearsky_adj) < 0.001 || m_flow_control_frac == 1.0)  // Flow control based on actual DNI
 			soln = soln_actual;
 		
 		else if (soln_clearsky.rec_is_off)    // Receiver can't operate at this time point 
@@ -520,6 +524,11 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 			q_dot_inc_min_panel = fmin(q_dot_inc_min_panel, m_q_dot_inc.at(i));
 		}
 	}
+
+	double q_thermal_steadystate = soln.Q_thermal;
+	double q_thermal_csky = 0.0;
+	if (m_flow_control_frac < 1.0)
+		q_thermal_csky = soln_clearsky.Q_thermal;  // Steady state thermal power with clearsky DNI
 
 
 
@@ -677,6 +686,8 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 		// q_startup = 0.0;
 		// ISCC outputs
 		m_dot_salt_tot_ss = 0.0; f_rec_timestep = 0.0; q_thermal_ss = 0.0;
+		q_thermal_csky = q_thermal_steadystate = 0.0;
+		
 
 		// Reset m_od_control
 		m_od_control = 1.0;		//[-]
@@ -708,6 +719,8 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
     outputs.m_q_heattrace = 0.0;
 
 	outputs.m_clearsky = clearsky;  // W/m2
+	outputs.m_Q_thermal_csky_ss = q_thermal_csky / 1.e6; //[MWt]
+	outputs.m_Q_thermal_ss = q_thermal_steadystate / 1.e6; //[MWt]
 
     ms_outputs = outputs;
 
@@ -745,6 +758,8 @@ void C_mspt_receiver_222::off(const C_csp_weatherreader::S_outputs &weather,
     outputs.m_q_heattrace = 0.0;
 	
 	outputs.m_clearsky = get_clearsky(weather, sim_info.ms_ts.m_time / 3600.);  // clear-sky DNI (set to actual DNI if actual DNI is higher than computed clear-sky value)
+	outputs.m_Q_thermal_csky_ss = 0.0; //[MWt]
+	outputs.m_Q_thermal_ss = 0.0; //[MWt]
 
     ms_outputs = outputs;
 	
@@ -1174,6 +1189,7 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 
 
 		// Calculate outlet temperature after piping losses
+		soln.Q_dot_piping_loss = 0.0;
 		if (m_Q_dot_piping_loss > 0.0)
 		{
 			double m_dot_salt_tot_temp = soln.m_dot_salt * m_n_lines;		//[kg/s]
@@ -1219,7 +1235,7 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 		soln.Q_abs_sum += soln.q_dot_abs.at(i);
 		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i) * 1000);
 	}
-
+	soln.Q_thermal = soln.Q_abs_sum - soln.Q_dot_piping_loss;
 
 	if (soln.Q_inc_sum > 0.0)
 		soln.eta_therm = soln.Q_abs_sum / soln.Q_inc_sum;
@@ -1230,6 +1246,7 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 	if (soln.mode == C_csp_collector_receiver::OFF)
 		soln.rec_is_off = true;
 
+	
 
 	return;
 

@@ -677,24 +677,28 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 
 	else
 	{
-
 		//--- Solve for mass flow at actual and/or clear-sky DNI extremes
-		if (m_flow_control_frac > 0.001 || fabs(I_bn - clearsky_adj) < 0.01)  // Solve for mass flow at actual DNI?
+		if (m_flow_control_frac > 0.0 || fabs(I_bn - clearsky_adj) < 0.001)  // Solve for mass flow at actual DNI?
 		{
 			soln_actual = soln;  // Sets initial solution properties (inlet T, initial defocus control, etc.)
 			soln_actual.dni = I_bn;
 			solve_for_mass_flow_and_defocus(soln_actual, m_dot_htf_max, flux_map_input, weather, time);
 		}
 
-		if (m_flow_control_frac < 0.999 && fabs(I_bn - clearsky_adj) >= 0.01) // Solve for mass flow at clear-sky DNI?
+		if (m_flow_control_frac < 1.0) // Solve for mass flow at clear-sky DNI?
 		{
-			soln_clearsky = soln;
-			soln_clearsky.dni = clearsky_adj;
-			solve_for_mass_flow_and_defocus(soln_clearsky, m_dot_htf_max, flux_map_input, weather, time);
+			if (fabs(I_bn - clearsky_adj) < 0.001)
+				soln_clearsky = soln_actual;
+			else
+			{
+				soln_clearsky = soln;
+				soln_clearsky.dni = clearsky_adj;
+				solve_for_mass_flow_and_defocus(soln_clearsky, m_dot_htf_max, flux_map_input, weather, time);
+			}
 		}
 
 		//--- Set mass flow and calculate final solution
-		if (fabs(I_bn - clearsky_adj) < 0.01 || m_flow_control_frac > 0.999)  // Flow control based on actual DNI
+		if (fabs(I_bn - clearsky_adj) < 0.001 || m_flow_control_frac == 1.0)  // Flow control based on actual DNI
 			soln = soln_actual;
 
 		else if (soln_clearsky.rec_is_off)    // Receiver can't operate at this time point 
@@ -785,6 +789,14 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 		}
 	}
 
+	double q_thermal_steadystate = soln.Q_thermal;
+	double q_thermal_csky = 0.0;
+	if (m_flow_control_frac < 1.0)
+		q_thermal_csky = soln_clearsky.Q_thermal;  // Steady state thermal power with clearsky DNI
+
+
+
+
 
 	double DELTAP, Pres_D, W_dot_pump, q_thermal, q_startup;
 	DELTAP = Pres_D = W_dot_pump = q_thermal = q_startup = std::numeric_limits<double>::quiet_NaN();
@@ -808,41 +820,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 		trans_inputs.inlet_temp = T_salt_cold_in;
 		trans_inputs.tinit = m_tinit;
 		trans_inputs.tinit_wall = m_tinit_wall;
-		param_inputs.mflow_tot = m_dot_salt_tot;
-		param_inputs.c_htf = field_htfProps.Cp(T_coolant_prop)*1000.0;		// HTF specific heat at average temperature [J/kg-K] 
-		param_inputs.rho_htf = field_htfProps.dens(T_coolant_prop, 1.0);	// HTF density at average temperature [kg/m3]
-		param_inputs.mu_htf = field_htfProps.visc(T_coolant_prop);			// HTF viscosity at average temperature [kg/m/s]
-		param_inputs.k_htf = field_htfProps.cond(T_coolant_prop);			// HTF conductivity at average temperature [W/m/K]
-		param_inputs.Pr_htf = param_inputs.c_htf*param_inputs.mu_htf / param_inputs.k_htf;
-		param_inputs.T_amb = T_amb;
-		param_inputs.T_sky = T_sky;
-		param_inputs.wspd = weather.m_wspd;
-		param_inputs.pres = weather.m_pres*100.;
-
-		// Set panel incident solar energy and fill in initial guesses for property evaluation temperatures with steady state values
-		param_inputs.qinc.fill(0.0);				// Solar energy incident on one tube (W)
-		param_inputs.qheattrace.fill(0.0);
-		for (int i = 0; i < m_n_lines; i++)
-		{
-			param_inputs.Tfeval.at(0, i) = T_salt_cold_in;	  //Riser
-			param_inputs.Tseval.at(0, i) = T_salt_cold_in;		
-			param_inputs.Tfeval.at(m_n_elem - 1, i) = T_salt_hot;	  //Downcomer
-			param_inputs.Tseval.at(m_n_elem - 1, i) = T_salt_hot;  
-			for (int j = 1; j < m_n_elem - 1; j++)
-			{
-				if (m_flowelem_type.at(j, i) >= 0)		// Receiver panel
-				{
-					param_inputs.qinc.at(j, i) = m_q_dot_inc.at(m_flowelem_type.at(j, i))*1000. / double(m_n_t);
-					param_inputs.Tfeval.at(j, i) = m_T_panel_ave.at(m_flowelem_type.at(j, i));
-					param_inputs.Tseval.at(j, i) = m_T_s.at(m_flowelem_type.at(j, i));
-				}
-				if (m_flowelem_type.at(j, i) == -3)		// Crossover header
-				{
-					param_inputs.Tfeval.at(j, i) = param_inputs.Tfeval.at(j - 1, i); 
-					param_inputs.Tseval.at(j, i) = param_inputs.Tfeval.at(j, i);	  
-				}
-			}
-		}
+		initialize_transient_param_inputs(soln, weather, time, param_inputs);
 	}
 
 	double q_heat_trace_energy = 0.0;	//[J]
@@ -1352,6 +1330,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 		// q_startup = 0.0;
 		// ISCC outputs
 		m_dot_salt_tot_ss = 0.0; f_rec_timestep = 0.0; q_thermal_ss = 0.0;
+		q_thermal_csky = q_thermal_steadystate = 0.0;
 
 		// Reset m_od_control
 		m_od_control = 1.0;		//[-]
@@ -1429,6 +1408,8 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	}
 
 	outputs.m_clearsky = clearsky;  // W/m2
+	outputs.m_Q_thermal_csky_ss = q_thermal_csky / 1.e6; //[MWt]
+	outputs.m_Q_thermal_ss = q_thermal_steadystate / 1.e6; //[MWt]
 
     ms_outputs = outputs;
 
@@ -1521,6 +1502,9 @@ void C_mspt_receiver::off(const C_csp_weatherreader::S_outputs &weather,
 	}
 
 	outputs.m_clearsky = get_clearsky(weather, sim_info.ms_ts.m_time / 3600.);  // clear-sky DNI (set to actual DNI if actual DNI is higher than computed clear-sky value)
+	outputs.m_Q_thermal_csky_ss = 0.0; //[MWt]
+	outputs.m_Q_thermal_ss = 0.0; //[MWt]
+
     ms_outputs = outputs;
 
 	return;
@@ -1959,6 +1943,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 
 
 		// Calculate outlet temperature after piping losses
+		soln.Q_dot_piping_loss = 0.0;
 		if (m_Q_dot_piping_loss > 0.0)
 		{
 			double m_dot_salt_tot_temp = soln.m_dot_salt * m_n_lines;		//[kg/s]
@@ -2004,6 +1989,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 		soln.Q_abs_sum += soln.q_dot_abs.at(i);
 		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i) * 1000);
 	}
+	soln.Q_thermal = soln.Q_abs_sum - soln.Q_dot_piping_loss;
 
 
 	if (soln.Q_inc_sum > 0.0)
@@ -3329,6 +3315,56 @@ void C_mspt_receiver::calc_ss_profile(const transient_inputs &tinputs, util::mat
 }
 
 
+
+void C_mspt_receiver::initialize_transient_param_inputs(const s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, parameter_eval_inputs &pinputs)
+{
+	// Initialize values of transient model parameter inputs (pinputs) from steady state solution, current weather, and current time
+
+	double P_amb = weather.m_pres*100.0;	//[Pa] Ambient pressure, convert from mbar
+	double hour = time / 3600.0;			//[hr] Hour of the year
+	double T_dp = weather.m_tdew + 273.15;	//[K] Dewpoint temperature, convert from C
+	double T_amb = weather.m_tdry + 273.15;	//[K] Dry bulb temperature, convert from C
+	double v_wind_10 = weather.m_wspd;
+	double T_sky = CSP::skytemp(T_amb, T_dp, hour);
+
+	double T_coolant_prop = (soln.T_salt_hot + soln.T_salt_cold_in) / 2.0;
+	pinputs.mflow_tot = soln.m_dot_salt_tot;
+	pinputs.c_htf = field_htfProps.Cp(T_coolant_prop)*1000.0;		// HTF specific heat at average temperature [J/kg-K] 
+	pinputs.rho_htf = field_htfProps.dens(T_coolant_prop, 1.0);	// HTF density at average temperature [kg/m3]
+	pinputs.mu_htf = field_htfProps.visc(T_coolant_prop);			// HTF viscosity at average temperature [kg/m/s]
+	pinputs.k_htf = field_htfProps.cond(T_coolant_prop);			// HTF conductivity at average temperature [W/m/K]
+	pinputs.Pr_htf = param_inputs.c_htf*pinputs.mu_htf / pinputs.k_htf;
+	
+	pinputs.T_amb = T_amb;
+	pinputs.T_sky = T_sky;
+	pinputs.wspd = v_wind_10;
+	pinputs.pres = P_amb;
+
+	// Set panel incident solar energy and fill in initial guesses for property evaluation temperatures with steady state values
+	pinputs.qinc.fill(0.0);				// Solar energy incident on one tube (W)
+	pinputs.qheattrace.fill(0.0);
+	for (int i = 0; i < m_n_lines; i++)
+	{
+		pinputs.Tfeval.at(0, i) = soln.T_salt_cold_in;	  //Riser
+		pinputs.Tseval.at(0, i) = soln.T_salt_cold_in;
+		pinputs.Tfeval.at(m_n_elem - 1, i) = soln.T_salt_hot;	  //Downcomer
+		pinputs.Tseval.at(m_n_elem - 1, i) = soln.T_salt_hot;
+		for (int j = 1; j < m_n_elem - 1; j++)
+		{
+			if (m_flowelem_type.at(j, i) >= 0)		// Receiver panel
+			{
+				pinputs.qinc.at(j, i) = soln.q_dot_inc.at(m_flowelem_type.at(j, i))*1000. / double(m_n_t);
+				pinputs.Tfeval.at(j, i) = soln.T_panel_ave.at(m_flowelem_type.at(j, i));
+				pinputs.Tseval.at(j, i) = soln.T_s.at(m_flowelem_type.at(j, i));
+			}
+			if (m_flowelem_type.at(j, i) == -3)		// Crossover header
+			{
+				pinputs.Tfeval.at(j, i) = pinputs.Tfeval.at(j - 1, i);
+				pinputs.Tseval.at(j, i) = pinputs.Tfeval.at(j, i);
+			}
+		}
+	}
+}
 
 void C_mspt_receiver::update_pde_parameters(bool use_initial_t, parameter_eval_inputs &pinputs, transient_inputs &tinputs)
 {

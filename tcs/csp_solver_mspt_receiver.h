@@ -137,6 +137,7 @@ private:
 		double Q_abs_sum;			// Total energy transferred to HTF, not including piping loss (W)
 		double Q_dot_piping_loss;   // Piping loss (W)
 		double Q_inc_min;			// Minimum absorbed solar energy on any panel (W)
+		double Q_thermal;			// Thermal power delivered to fluid (less piping loss) (W)
 
 		double eta_therm;			// Receiver thermal efficiency (energy to HTF not including piping loss / Absorbed solar energy)
 
@@ -159,7 +160,7 @@ private:
 		void clear()
 		{
 			dni = od_control = field_eff = m_dot_salt = m_dot_salt_tot = T_salt_cold_in = T_salt_hot = T_salt_hot_rec = T_salt_props = std::numeric_limits<double>::quiet_NaN();
-			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = eta_therm = std::numeric_limits<double>::quiet_NaN();
+			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = Q_thermal = eta_therm = std::numeric_limits<double>::quiet_NaN();
 			mode = itermode = -1;
 			rec_is_off = true;
 		}
@@ -266,7 +267,8 @@ private:
 	
 	void calc_ss_profile(const transient_inputs &tinputs, util::matrix_t<double> &tprofile, util::matrix_t<double> &tprofile_wall);
 	void calc_axial_profile( double tpt, const transient_inputs &tinputs, util::matrix_t<double> &tprofile);
-	void calc_extreme_outlet_values(double tstep, int flowid, const transient_inputs &tinputs, util::matrix_t<double> &textreme, util::matrix_t<double> &tpt);
+	void calc_extreme_outlet_values(double tstep, int flowid, const transient_inputs &tinputs, util::matrix_t<double> &textreme, util::matrix_t<double> &tpt);	
+	void initialize_transient_param_inputs(const s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, parameter_eval_inputs &pinputs);
 	void update_pde_parameters(bool use_initial_t, parameter_eval_inputs &pinputs, transient_inputs &tinputs);
 	void solve_transient_model(double tstep, double allowable_Trise, parameter_eval_inputs &pinputs, transient_inputs &tinputs, transient_outputs &toutputs);
 	void solve_transient_startup_model(parameter_eval_inputs &pinputs, transient_inputs &tinputs, int startup_mode, double target_temperature, double min_time, double max_time, transient_outputs &toutputs, double &startup_time, double &energy, double &parasitic);

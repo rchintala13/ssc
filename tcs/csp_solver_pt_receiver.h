@@ -126,6 +126,8 @@ public:
         double m_Tdownc;				//[C] Average downcomer wall temperature at outlet
 
 		double m_clearsky;				//[W/m2] Clear-sky DNI used in receiver flow control 
+		double m_Q_thermal_csky_ss;		//[MWt]  Steady-state thermal power delivered to TES/PC if DNI is equal to clear-sky DNI 
+		double m_Q_thermal_ss;			//[MWt] Steady-state thermal power delivered to TES/PC 
 
         S_outputs()
         {
@@ -140,7 +142,7 @@ public:
                 m_time_required_su = m_q_dot_piping_loss = m_q_heattrace = std::numeric_limits<double>::quiet_NaN();
 
 			m_inst_T_salt_hot = m_max_T_salt_hot = m_min_T_salt_hot = m_max_rec_tout = m_Twall_inlet = m_Twall_outlet = 
-				m_Triser = m_Tdownc = m_clearsky = std::numeric_limits<double>::quiet_NaN();
+				m_Triser = m_Tdownc = m_clearsky = m_Q_thermal_csky_ss = m_Q_thermal_ss = std::numeric_limits<double>::quiet_NaN();
         }
     };
 

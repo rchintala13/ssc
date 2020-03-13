@@ -260,6 +260,8 @@ static C_csp_reported_outputs::S_output_info S_solver_output_info[] =
 	{C_csp_solver::C_solver_outputs::TES_E_CH_STATE, C_csp_reported_outputs::TS_WEIGHTED_AVE},		  //[MWht] TES charge state at the end of the time step
 	{C_csp_solver::C_solver_outputs::TES_M_DOT_DC, C_csp_reported_outputs::TS_WEIGHTED_AVE},		  //[MWt] TES discharge mass flow rate
 	{C_csp_solver::C_solver_outputs::TES_M_DOT_CH, C_csp_reported_outputs::TS_WEIGHTED_AVE},		  //[MWt] TES charge mass flow rate
+	{ C_csp_solver::C_solver_outputs::TES_M_HOT, C_csp_reported_outputs::TS_WEIGHTED_AVE },			  //[kg] TES hot tank available mass
+	{ C_csp_solver::C_solver_outputs::TES_M_COLD, C_csp_reported_outputs::TS_WEIGHTED_AVE },		  //[kg] TES cold tank available mass
 	{C_csp_solver::C_solver_outputs::COL_W_DOT_TRACK, C_csp_reported_outputs::TS_WEIGHTED_AVE},	  //[MWe] Parasitic collector tracking, startup, stow power consumption
 	{C_csp_solver::C_solver_outputs::CR_W_DOT_PUMP, C_csp_reported_outputs::TS_WEIGHTED_AVE},		  //[MWe] Parasitic tower HTF pump power
 	{C_csp_solver::C_solver_outputs::SYS_W_DOT_PUMP, C_csp_reported_outputs::TS_WEIGHTED_AVE},		  //[MWe] Parasitic PC and TES HTF pump power
@@ -4909,12 +4911,19 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 
         //Update the estimated thermal energy storage charge state
         double e_tes_disch = 0.;
+		double mhot_avail = 0.;
+		double mcold_avail = 0.;
         if(m_is_tes)
         {
             double mdot_disch, Tdisch;
 			mc_tes.discharge_avail_est(m_T_htf_cold_des, mc_kernel.mc_sim_info.ms_ts.m_step, e_tes_disch, mdot_disch, Tdisch);
 
             e_tes_disch *= mc_kernel.mc_sim_info.ms_ts.m_step / 3600.;  //MWh
+			mhot_avail = mdot_disch * mc_kernel.mc_sim_info.ms_ts.m_step;  //kg
+
+			double e_tes_ch, mdot_ch, Tch;
+			mc_tes.charge_avail_est(Tdisch, mc_kernel.mc_sim_info.ms_ts.m_step, e_tes_ch, mdot_ch, Tch);
+			mcold_avail = mdot_ch * mc_kernel.mc_sim_info.ms_ts.m_step;  //kg
         }
 
 		// Save timestep outputs
@@ -5003,6 +5012,9 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 		mc_reported_outputs.value(C_solver_outputs::TES_E_CH_STATE, e_tes_disch);                       //[MWht] TES charge state 
 		mc_reported_outputs.value(C_solver_outputs::TES_M_DOT_DC, mc_tes_dc_htf_state.m_m_dot);         //[kg/hr] TES mass flow rate discharge   
 		mc_reported_outputs.value(C_solver_outputs::TES_M_DOT_CH, mc_tes_ch_htf_state.m_m_dot);         //[kg/hr] TES mass flow rate charge   
+		mc_reported_outputs.value(C_solver_outputs::TES_M_HOT, mhot_avail);           //[kg] TES hot tank available mass
+		mc_reported_outputs.value(C_solver_outputs::TES_M_COLD, mcold_avail);         //[kg] TES cold tank available mass 
+
 			// Parasitics outputs
 		mc_reported_outputs.value(C_solver_outputs::COL_W_DOT_TRACK, mc_cr_out_solver.m_W_dot_col_tracking);    //[MWe] Collector tracking, startup, stow power consumption 
 		mc_reported_outputs.value(C_solver_outputs::CR_W_DOT_PUMP, mc_cr_out_solver.m_W_dot_htf_pump);          //[MWe] Receiver/tower HTF pumping power   
