@@ -50,6 +50,9 @@
 #include "csp_solver_pt_receiver.h"
 #include "csp_solver_core.h"
 
+#include "Ambient.h"
+#include "definitions.h"
+
 C_pt_receiver::C_pt_receiver()
 {
 	m_h_tower = std::numeric_limits<double>::quiet_NaN();
@@ -69,6 +72,9 @@ C_pt_receiver::C_pt_receiver()
 	m_m_dot_htf_des = std::numeric_limits<double>::quiet_NaN();
     m_mode = -1;
     m_mode_prev = -1;
+
+	m_clearsky_model = -1;
+	m_clearsky_data.resize(0);
 }
 
 int C_pt_receiver::get_operating_state()
@@ -89,4 +95,59 @@ double C_pt_receiver::get_startup_time()
 double C_pt_receiver::get_startup_energy()
 {
     return m_rec_qf_delay * m_q_rec_des * 1.e-6;  // MWh
+}
+
+double C_pt_receiver::get_clearsky(const C_csp_weatherreader::S_outputs &weather, double hour)
+{
+	if (m_clearsky_model == -1 || weather.m_solzen >= 90.0)
+		return 0.0;
+
+	double clearsky;
+	if (m_clearsky_model == 0)  // Use user-defined array
+	{
+		int nsteps = (int)m_clearsky_data.size();
+		double baseline_step = 8760. / double(nsteps);  // Weather file time step size (hr)
+		int step = (int)((hour - 1.e-6) / baseline_step);
+		step = std::min(step, nsteps - 1);
+		clearsky = m_clearsky_data.at(step);
+	}
+	else  // use methods in SolarPILOT
+	{ 
+		std::vector<int> monthlen{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+		int doy = weather.m_day;
+		int m = weather.m_month - 1;
+		for (int j = 0; j < m; j++)
+			doy += monthlen[j];
+
+		Ambient A;
+		var_map V;
+		V.amb.latitude.val = weather.m_lat;
+		V.amb.longitude.val = weather.m_lon;
+		V.amb.time_zone.val = weather.m_tz;
+		V.amb.elevation.val = weather.m_elev;
+
+		double pres = weather.m_pres;
+		if (pres < 20. && pres > 1.0)  // Some weather files seem to have inconsistent pressure units... make sure that value is of correct order of magnitude
+			pres = weather.m_pres*100.;  // convert to mbar
+		V.amb.dpres.val = pres * 1.e-3 * 0.986923;  // Ambient pressure in atm
+		V.amb.del_h2o.val = exp(0.058*weather.m_tdew + 2.413);  // Correlation for precipitable water in mm H20 (from Choudhoury INTERNATIONAL JOURNAL OF CLIMATOLOGY, VOL. 16, 663-475 (1996))
+
+		std::string model;
+		if (m_clearsky_model == 1)
+			model = "Meinel model";
+		else if (m_clearsky_model == 2)
+			model = "Hottel model";
+		else if (m_clearsky_model == 3)     // Note, names of Allen/Moon model are reveresed in Ambient.cpp compared to Delsol2 documentation
+			model = "Moon model";
+		else if (m_clearsky_model == 4)
+			model = "Allen model";
+
+		V.amb.insol_type.val = model;
+		double zenith = weather.m_solzen * 3.14159 / 180.;
+		double azimuth = weather.m_solazi * 3.14159 / 180.;
+		clearsky = A.calcInsolation(V, azimuth, zenith, doy);
+		clearsky = std::fmax(0.0, clearsky);
+	}
+
+	return clearsky;
 }

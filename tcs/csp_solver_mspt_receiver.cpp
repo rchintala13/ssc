@@ -167,10 +167,6 @@ C_mspt_receiver::C_mspt_receiver()
 	m_crossover_index = -1;
 
 	m_flow_control_frac = std::numeric_limits<double>::quiet_NaN();
-	m_clearsky_model = 0;
-	m_clearsky_data.resize(0);
-
-	
 
 }
 
@@ -1553,72 +1549,6 @@ void C_mspt_receiver::converged()
 }
 
 
-// Get clear-sky DNI (uses calcualtions in SolarPILOT Ambient class) -> Same as C_mspt_receiver_222::get_clearsky
-double C_mspt_receiver::get_clearsky(const C_csp_weatherreader::S_outputs &weather, double hour)
-{
-	if (m_clearsky_model == -1)
-		return 0.0;
-
-	if (weather.m_solzen >= 90.0)
-		return 0.0;
-
-	std::vector<int> monthlen(12, 31);
-	for (int i = 1; i < 12; i++)
-		monthlen[i] = 30;
-	monthlen[1] = 28;
-
-	int doy = weather.m_day;
-	int m = weather.m_month - 1;
-	if (m > 0)
-	{
-		for (int j = 0; j < m; j++)
-			doy += monthlen[j];
-	}
-
-	Ambient A;
-	var_map V;
-	V.amb.latitude.val = weather.m_lat;
-	V.amb.longitude.val = weather.m_lon;
-	V.amb.time_zone.val = weather.m_tz;
-	V.amb.elevation.val = weather.m_elev;
-
-	double pres = weather.m_pres;
-	if (pres < 20. && pres > 1.0)  // Some weather files seem to have inconsistent pressure units... make sure that value is of correct order of magnitude
-		pres = weather.m_pres*100.;  // convert to mbar
-	V.amb.dpres.val = pres * 1.e-3 * 0.986923;  // Ambient pressure in atm
-	V.amb.del_h2o.val = exp(0.058*weather.m_tdew + 2.413);  // Correlation for precipitable water in mm H20 (from Choudhoury INTERNATIONAL JOURNAL OF CLIMATOLOGY, VOL. 16, 663-475 (1996))
-
-
-	double clearsky;
-	if (m_clearsky_model == 0)  // Use user-defined array
-	{
-		int nsteps = (int)m_clearsky_data.size();
-		double baseline_step = 8760. / double(nsteps);  // Weather file time step size (hr)
-		int step = (int)((hour - 1.e-6) / baseline_step);
-		step = std::min(step, nsteps - 1);
-		clearsky = m_clearsky_data.at(step);
-	}
-	else
-	{
-		std::string model;
-		if (m_clearsky_model == 1)
-			model = "Meinel model";
-		else if (m_clearsky_model == 2)
-			model = "Hottel model";
-		else if (m_clearsky_model == 3)     // Note, names of Allen/Moon model are reveresed in Ambient.cpp compared to Delsol2 documentation
-			model = "Moon model";
-		else if (m_clearsky_model == 4)
-			model = "Allen model";
-
-		V.amb.insol_type.val = model;
-		double zenith = weather.m_solzen * CSP::pi / 180.;
-		double azimuth = weather.m_solazi * CSP::pi / 180.;
-		clearsky = A.calcInsolation(V, azimuth, zenith, doy);
-		clearsky = std::fmax(0.0, clearsky);
-	}
-
-	return clearsky;
-}
 
 // Calculate flux profiles (interpolated to receiver panels at specified DNI) -> Same as C_mspt_receiver_222::calculate_flux_profiles
 util::matrix_t<double> C_mspt_receiver::calculate_flux_profiles(double dni, double field_eff, double od_control, const util::matrix_t<double> *flux_map_input)

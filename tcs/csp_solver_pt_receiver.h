@@ -78,7 +78,9 @@ public:
 
     double m_eta_pump;					//[-] HTF pump efficiency
     int m_night_recirc;					//[-] 1=receiver is circulating HTF at night, otherwise not
-
+	
+	int m_clearsky_model;
+	std::vector<double> m_clearsky_data;
 
     struct S_inputs
     {
@@ -184,6 +186,8 @@ protected:
     int m_mode_prev;                    //[-] operating mode of receiver at end of last converged timestep
 
     std::string error_msg;              // member string for exception messages
+	
+	virtual double get_clearsky(const C_csp_weatherreader::S_outputs &weather, double hour);
 
 };
 

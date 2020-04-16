@@ -1573,20 +1573,6 @@ public:
 
         std::unique_ptr<C_pt_receiver> receiver;
 
-
-		ssc_number_t* csky;
-		if (as_integer("rec_clearsky_model") == 0)
-		{
-			size_t n_csky = 0;
-			csky = as_array("rec_clearsky_dni", &n_csky);
-			if (n_csky != n_steps_full)
-				throw exec_error("tcsmolten_salt", "Invalid clear-sky DNI data. Array must have " + util::to_string((int)n_steps_full) + " rows.");
-		}
-		
-		if (as_integer("rec_clearsky_model") == -1 && as_double("rec_flow_control_fraction")<0.999)
-			throw exec_error("tcsmolten_salt", "'rec_clearsky_model' must be specified when 'rec_flow_control_fraction' < 1.0.");
-
-
         if (!as_boolean("is_rec_model_trans") && !as_boolean("is_rec_startup_trans")) {
             //std::unique_ptr<C_mspt_receiver_222> ss_receiver = std::make_unique<C_mspt_receiver_222>();   // new to C++14
             std::unique_ptr<C_mspt_receiver_222> ss_receiver = std::unique_ptr<C_mspt_receiver_222>(new C_mspt_receiver_222());   // steady-state receiver
@@ -1612,14 +1598,6 @@ public:
             ss_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             ss_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
 			ss_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
-			ss_receiver->m_clearsky_model = as_integer("rec_clearsky_model");
-
-			if (as_integer("rec_clearsky_model") == 0)
-			{
-				ss_receiver->m_clearsky_data.resize(n_steps_full);
-				for (size_t i = 0; i < n_steps_full; i++)
-					ss_receiver->m_clearsky_data.at(i) = (double)csky[i];
-			}
 
             receiver = std::move(ss_receiver);
         }
@@ -1648,14 +1626,6 @@ public:
             trans_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             trans_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
 			trans_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
-			trans_receiver->m_clearsky_model = as_integer("rec_clearsky_model");
-
-			if (as_integer("rec_clearsky_model") == 0)
-			{
-				trans_receiver->m_clearsky_data.resize(n_steps_full);
-				for (size_t i = 0; i < n_steps_full; i++)
-					trans_receiver->m_clearsky_data.at(i) = (double)csky[i];
-			}
 
 
             // Inputs for transient receiver model
@@ -1700,6 +1670,23 @@ public:
         receiver->m_m_dot_htf_max_frac = as_double("csp.pt.rec.max_oper_frac");
         receiver->m_eta_pump = as_double("eta_pump");
         receiver->m_night_recirc = 0;
+
+		receiver->m_clearsky_model = as_integer("rec_clearsky_model");
+		if (receiver->m_clearsky_model == -1 && as_double("rec_flow_control_fraction")<0.999)
+			throw exec_error("tcsmolten_salt", "'rec_clearsky_model' must be specified when 'rec_flow_control_fraction' < 1.0.");
+
+		if (receiver->m_clearsky_model == 0)
+		{
+			size_t n_csky = 0;
+			ssc_number_t* csky = as_array("rec_clearsky_dni", &n_csky);
+			if (n_csky != n_steps_full)
+				throw exec_error("tcsmolten_salt", "Invalid clear-sky DNI data. Array must have " + util::to_string((int)n_steps_full) + " rows.");
+
+			receiver->m_clearsky_data.resize(n_steps_full);
+			for (size_t i = 0; i < n_steps_full; i++)
+				receiver->m_clearsky_data.at(i) = (double)csky[i];
+		}
+
 
         // Could add optional ISCC stuff...
 
