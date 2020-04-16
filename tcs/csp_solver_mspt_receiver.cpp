@@ -604,8 +604,8 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	bool rec_is_defocusing = false;
 	double field_eff_adj = 0.0;
 
-	double panel_req_preheat = m_tube_flux_preheat * m_od_tube * m_h_rec * m_n_t;					// Panel absorbed solar energy required to meet preheat flux requirement (kW)
-	double total_req_preheat = (m_tube_flux_preheat * m_od_tube * m_h_rec * m_n_t) * m_n_panels;	// Total absorbed solar energy on all panels (kW) required to meet preheat flux requirement
+	double panel_req_preheat = m_tube_flux_preheat * m_od_tube * m_h_rec * m_n_t*1000;					// Panel absorbed solar energy required to meet preheat flux requirement (W)
+	double total_req_preheat = (m_tube_flux_preheat * m_od_tube * m_h_rec * m_n_t) * m_n_panels*1000;	// Total absorbed solar energy on all panels (W) required to meet preheat flux requirement
 	bool startup_low_flux = false;
 
 	// ************* Outputs for ISCC model ****************
@@ -763,8 +763,8 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	q_conv_sum = soln.Q_conv_sum;
 	q_rad_sum = soln.Q_rad_sum;
 	q_dot_piping_loss = soln.Q_dot_piping_loss;
-	q_dot_inc_sum = soln.Q_inc_sum / 1000.;
-	q_dot_inc_min_panel = soln.Q_inc_min / 1000;
+	q_dot_inc_sum = soln.Q_inc_sum;
+	q_dot_inc_min_panel = soln.Q_inc_min;
 
 	m_T_s = soln.T_s;
 	m_T_panel_in = soln.T_panel_in;
@@ -1224,7 +1224,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 					m_mode = C_csp_collector_receiver::ON;
 					q_startup = 0.0;
 
-					if (q_dot_inc_sum*1.E3 < m_q_dot_inc_min)
+					if (q_dot_inc_sum < m_q_dot_inc_min)
 					{
 						// If output here is less than specified allowed minimum, then need to shut off receiver
 						m_mode = C_csp_collector_receiver::OFF;
@@ -1258,7 +1258,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 				q_thermal_ss = m_dot_salt_tot_ss*c_p_coolant*(T_salt_hot - T_salt_cold_in);
 				calc_pump_performance(rho_coolant, m_dot_salt_tot, f, Pres_D, W_dot_pump);
 
-				if (q_dot_inc_sum*1.E3 < m_q_dot_inc_min)				// Receiver is not allowed to operate
+				if (q_dot_inc_sum < m_q_dot_inc_min)				// Receiver is not allowed to operate
 				{
 					m_mode = C_csp_collector_receiver::OFF;
 					W_dot_pump = 0.0;
@@ -1272,11 +1272,11 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 					param_inputs.ffinal = 1.0;
 					param_inputs.ramptime = 0.0;
 					solve_transient_model(step, 100.0, param_inputs, trans_inputs, trans_outputs);
-					trans_outputs.timeavg_eta_therm = 1.0 - (trans_outputs.timeavg_conv_loss + trans_outputs.timeavg_rad_loss) / (q_dot_inc_sum * 1000.);	//[-] Time-averaged recevier thermal efficiency during the time step
+					trans_outputs.timeavg_eta_therm = 1.0 - (trans_outputs.timeavg_conv_loss + trans_outputs.timeavg_rad_loss) / (q_dot_inc_sum);	//[-] Time-averaged recevier thermal efficiency during the time step
 				}
 			}
 
-			if (q_dot_inc_sum*1.E3 < m_q_dot_inc_min)
+			if (q_dot_inc_sum < m_q_dot_inc_min)
 				rec_is_off = true;
 
 			break;
@@ -1290,10 +1290,10 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 			q_thermal_ss = m_dot_salt_tot_ss*c_p_coolant*(T_salt_hot - T_salt_cold_in);
 
 			if (m_is_startup_transient && startup_low_flux)    // Incident flux is high enough for startup but not for steady state operation. Report nonzero q_thermal to allow startup
-				q_thermal = q_dot_inc_sum*1000.0;
+				q_thermal = q_dot_inc_sum;
 			else
 			{
-				if (q_dot_inc_sum*1.E3 < m_q_dot_inc_min && m_mode_prev == C_csp_collector_receiver::ON)
+				if (q_dot_inc_sum < m_q_dot_inc_min && m_mode_prev == C_csp_collector_receiver::ON)
 					rec_is_off = true;
 			}
 
@@ -1356,7 +1356,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	outputs.m_T_salt_hot = T_salt_hot - 273.15;		//[C] convert from K
 	outputs.m_field_eff_adj = field_eff_adj;					//[-]
 	outputs.m_component_defocus = m_od_control;				//[-]
-	outputs.m_q_dot_rec_inc = q_dot_inc_sum / 1.E3;			//[MW] convert from kW
+	outputs.m_q_dot_rec_inc = q_dot_inc_sum / 1.E6;			//[MW] convert from W
 	outputs.m_q_startup = q_startup/1.E6;					//[MW-hr] convert from W-hr
 	outputs.m_dP_receiver = DELTAP*m_n_panels / m_n_lines / 1.E5;	//[bar] receiver pressure drop, convert from Pa
 	outputs.m_dP_total = Pres_D*10.0;						//[bar] total pressure drop, convert from MPa
@@ -1665,7 +1665,7 @@ util::matrix_t<double> C_mspt_receiver::calculate_flux_profiles(double dni, doub
 			if (ceiling > m_n_flux_x - 1) ceiling = 0;
 
 			double psp_field = (ind*(flux.at(ceiling) - flux.at(flo)) + flux.at(flo));		//[kW/m^2] Average area-specific power for each node			
-			q_dot_inc.at(i) = m_A_node * psp_field;											//[kW] The power incident on each node
+			q_dot_inc.at(i) = m_A_node * psp_field*1000;									//[W] The power incident on each node
 
 		}
 	}
@@ -1732,7 +1732,7 @@ util::matrix_t<double> C_mspt_receiver::calculate_flux_profiles(double dni, doub
 					q_flux_sum += flux[j];
 				}
 			}
-			q_dot_inc.at(i) = q_flux_sum * m_A_node / n_flux_x_d * n_panels_d;
+			q_dot_inc.at(i) = q_flux_sum * m_A_node / n_flux_x_d * n_panels_d *1000.;
 		}
 
 	}
@@ -1863,7 +1863,7 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 				// Radiation from the receiver - Calculate the radiation node by node
 				soln.q_dot_rad.at(i_fp) = 0.5*CSP::sigma*m_epsilon*m_A_node*(2.0*pow(soln.T_s.at(i_fp), 4) - pow(T_amb, 4) - pow(T_sky, 4))*m_hl_ffact;	//[W] Total radiation losses per node
 				soln.q_dot_loss.at(i_fp) = soln.q_dot_rad.at(i_fp) + soln.q_dot_conv.at(i_fp);			//[W] Total overall losses per node
-				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp)*1000.0 - soln.q_dot_loss.at(i_fp);	//[W] Absorbed flux at each node
+				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp) - soln.q_dot_loss.at(i_fp);			//[W] Absorbed flux at each node
 
 				// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
 				double T_wall = (soln.T_s.at(i_fp) + soln.T_panel_ave.at(i_fp)) / 2.0;				//[K] The temperature at which the conductivity of the wall is evaluated
@@ -1980,14 +1980,14 @@ void C_mspt_receiver::calculate_steady_state_soln(s_steady_state_soln &soln, con
 	soln.Q_conv_sum = 0.0;
 	soln.Q_rad_sum = 0.0;
 	soln.Q_abs_sum = 0.0;
-	soln.Q_inc_min = soln.q_dot_inc.at(0) * 1000;
+	soln.Q_inc_min = soln.q_dot_inc.at(0);
 	for (int i = 0; i < m_n_panels; i++)
 	{
-		soln.Q_inc_sum += soln.q_dot_inc.at(i)*1000.;
+		soln.Q_inc_sum += soln.q_dot_inc.at(i);
 		soln.Q_conv_sum += soln.q_dot_conv.at(i);
 		soln.Q_rad_sum += soln.q_dot_rad.at(i);
 		soln.Q_abs_sum += soln.q_dot_abs.at(i);
-		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i) * 1000);
+		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i));
 	}
 	soln.Q_thermal = soln.Q_abs_sum - soln.Q_dot_piping_loss;
 
@@ -2025,13 +2025,13 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 
 		double q_dot_inc_sum = 0.0;
 		for (int i = 0; i < m_n_panels; i++)
-			q_dot_inc_sum += soln.q_dot_inc.at(i);		//[kW] Total power absorbed by receiver
+			q_dot_inc_sum += soln.q_dot_inc.at(i);		//[W] Total power absorbed by receiver
 
-		double c_guess = field_htfProps.Cp((m_T_salt_hot_target + soln.T_salt_cold_in) / 2.0);	//[kJ/kg-K] Estimate the specific heat of the fluid in receiver
+		double c_guess = field_htfProps.Cp((m_T_salt_hot_target + soln.T_salt_cold_in) / 2.0)*1000;	//[J/kg-K] Estimate the specific heat of the fluid in receiver
 
 		if (soln.dni > 1.E-6)
 		{
-			double q_guess = 0.5*q_dot_inc_sum;		//[kW] Estimate the thermal power produced by the receiver			
+			double q_guess = 0.5*q_dot_inc_sum;		//[W] Estimate the thermal power produced by the receiver			
 			m_dot_salt_guess = q_guess / (c_guess*(m_T_salt_hot_target - soln.T_salt_cold_in)*m_n_lines);	//[kg/s] Mass flow rate for each flow path
 		}
 		else	// The tower recirculates at night (based on earlier conditions)
@@ -2091,6 +2091,7 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 			{
 				soln.mode = C_csp_collector_receiver::OFF;
 				soln.rec_is_off = true;
+				break;
 			}
 		}
 	}
@@ -3353,7 +3354,7 @@ void C_mspt_receiver::initialize_transient_param_inputs(const s_steady_state_sol
 		{
 			if (m_flowelem_type.at(j, i) >= 0)		// Receiver panel
 			{
-				pinputs.qinc.at(j, i) = soln.q_dot_inc.at(m_flowelem_type.at(j, i))*1000. / double(m_n_t);
+				pinputs.qinc.at(j, i) = soln.q_dot_inc.at(m_flowelem_type.at(j, i)) / double(m_n_t);
 				pinputs.Tfeval.at(j, i) = soln.T_panel_ave.at(m_flowelem_type.at(j, i));
 				pinputs.Tseval.at(j, i) = soln.T_s.at(m_flowelem_type.at(j, i));
 			}
@@ -4012,112 +4013,58 @@ void C_mspt_receiver::est_startup_time_energy(double fract, double &est_time, do
 {
 	// fract = Fraction of design point thermal power 
 
-	// Typical conditions during startup  
-	double Tamb = 290.0;				// Ambient temperature (K)
-	double Tsky = 280.0;
-	double wspd = 5.0;
-	double pres = 101325.;
-	double efficiency_est = 0.92;
+	double start_time = 0.0;
+	double start_energy = 0.0;
 
-
-	double cval, time_heattrace, time_preheat, time_fill, time_circulate, time_startup, circulate_energy, qinc_approx, parasitic;
-	double T_coolant_prop = 0.5*(m_T_htf_cold_des + m_T_htf_hot_des);
+	double hext = 10.;
+	double Tamb = 20. + 273.15;
 
 	// Heat tracing (without losses)
-	cval = m_heat_trace_power / m_tm_solid.at(0);
-	time_heattrace = (m_T_htf_cold_des - Tamb) / cval;
+	double time_heattrace = (m_T_htf_cold_des - Tamb) * m_tm_solid.at(0) / m_heat_trace_power;
+	start_time += time_heattrace;
 
-	//Preheating (without losses)
-	cval = m_od_tube * m_tube_flux_preheat*1000.0 / m_tm_solid.at(1);
-	time_preheat = (m_T_htf_cold_des - Tamb) / cval;
+	//Preheating 	
+	double Tavg = 0.5*(m_T_htf_cold_des + Tamb);
+	double qpreheat = (m_od_tube*m_tube_flux_preheat*1000.0);    // Solar power absorbed (W/m) during preheat
+	double qloss = (0.5*CSP::pi*m_od_tube) * (hext * (Tavg - Tamb) + (2.0/CSP::pi)*CSP::sigma*m_epsilon*(pow(Tavg, 4) - pow(Tamb, 4)));
+	double time_preheat = (m_preheat_target - Tamb)*m_tm_solid.at(1) / (qpreheat - qloss);
+	double energy_preheat = time_preheat * ((qpreheat - qloss)*m_h_rec*m_n_t*m_n_panels)* 1.e-6 / 3600.0;  //Energy needed to reach target T (MWht)
 	time_preheat = fmax(time_preheat, m_min_preheat_time);
+	start_time += time_preheat;
+	start_energy += energy_preheat;
 
 	// Fill
-	time_fill = m_fill_time;
-
-	/*
-	// Circulation (excluding cross-over header)
-	double cp_htf = field_htfProps.Cp(T_coolant_prop)*1000.0;		// HTF specific heat at average temperature [J/kg-K] 
-	double m_dot_rec_des = m_q_rec_des / (cp_htf*(m_T_htf_hot_des - m_T_htf_cold_des)); // Design point receiver mass flow rate (kg/s)
-	double mdot_startup = fract*m_dot_rec_des;								// Typical total mass flow rate during startup (kg/s)
-	double tube_lam1 = (mdot_startup / m_n_lines / m_n_t)*cp_htf / m_tm.at(1);
-	double downc_lam1 = mdot_startup*cp_htf / m_tm.at(m_n_elem - 1);
-	time_circulate = (m_n_panels / m_n_lines)*m_h_rec / tube_lam1 + 0.5*(m_h_tower*m_pipe_length_mult + m_pipe_length_add) / downc_lam1;
-	time_circulate = fmax(time_circulate, m_flux_ramp_time * 3600);
-
-	time_startup = time_heattrace + time_preheat + time_circulate;
-	time_startup = fmax(time_startup, m_rec_su_delay*3600.0);
-	est_time = time_startup;
-	est_energy = (time_preheat*(m_tube_flux_preheat *1000.0* m_od_tube * m_h_rec * m_n_t * m_n_panels) + time_circulate*(m_q_rec_des*fract)) * 1.e-6 / 3600.0;		//Energy utilized during the estimated startup time (MWt-hr)
-	*/
-
+	start_time += m_fill_time;
 
 	// Circulation
-	param_inputs.c_htf = field_htfProps.Cp(T_coolant_prop)*1000.0;		// HTF specific heat at average temperature [J/kg-K] 
-	param_inputs.rho_htf = field_htfProps.dens(T_coolant_prop, 1.0);	// HTF density at average temperature [kg/m3]
-	param_inputs.mu_htf = field_htfProps.visc(T_coolant_prop);			// HTF viscosity at average temperature [kg/m/s]
-	param_inputs.k_htf = field_htfProps.cond(T_coolant_prop);			// HTF conductivity at average temperature [W/m/K]
-	param_inputs.Pr_htf = param_inputs.c_htf*param_inputs.mu_htf / param_inputs.k_htf;
-	param_inputs.T_amb = Tamb;
-	param_inputs.T_sky = Tsky;
-	param_inputs.wspd = wspd;
-	param_inputs.pres = pres;
+
+	C_csp_weatherreader::S_outputs weather;
+	weather.m_pres = 101325./100; //mbar
+	weather.m_tdew = 2.0; //C
+	weather.m_tdry = 20.; //C
+	weather.m_wspd = 5.0; //m/s
+
+	s_steady_state_soln soln;
+	double time = 182 * 24 + 8.;
+	double efficiency_est = 0.92;
+	double qinc_approx = fract * m_q_rec_des / efficiency_est / double(m_n_panels); // Approximate average absorbed flux per panel [W]
+	soln.q_dot_inc.resize_fill(m_n_panels, qinc_approx);
+	soln.T_salt_cold_in = m_T_htf_cold_des;
+	soln.dni = 500.;   // Not used, just need >0
+	solve_for_mass_flow(soln, weather, time);
+	initialize_transient_param_inputs(soln, weather, 182 * 24 + 8, param_inputs);
 	param_inputs.tm = m_tm;
-	
-	param_inputs.qinc.fill(0.0);
-	qinc_approx = fract*m_q_rec_des/ efficiency_est / double(m_n_panels) / double(m_n_t); // Approximate incident flux per tube [W]
-	for (int j = 0; j < m_n_elem; j++)
-	{
-		if (m_flowelem_type.at(j, 0) >= 0)
-		{
-			for (int i = 0; i < m_n_lines; i++)
-				param_inputs.qinc.at(j, i) = qinc_approx;
-		}
-	}
+	param_inputs.ramptime = m_flux_ramp_time;
+	param_inputs.finitial = 0.0;
+	param_inputs.ffinal = 1.0;
+	if (m_flux_ramp_time == 0.0)
+		param_inputs.finitial = 1.0;
 
 	trans_inputs.inlet_temp = m_T_htf_cold_des;
 	trans_inputs.tinit.fill(m_T_htf_cold_des);
 	trans_inputs.tinit_wall.fill(m_T_htf_cold_des);
-
-	// Find mass flow rate that meets SS outlet temperature
-	param_inputs.finitial = 1.0;
-	param_inputs.ffinal = 1.0;
-	param_inputs.ramptime = 0.0;
-	double mguess, low, high, test, soln, Tdiff;
-	low = 0.8;
-	high = 1.2;
-	test = 1.0;
-	soln = std::numeric_limits<double>::quiet_NaN();
-	mguess = fract*m_q_rec_des / (param_inputs.c_htf *(m_T_htf_hot_des - m_T_htf_cold_des)); // receiver mass flow rate (kg/s)
-	int q = 0;
-	double tol = 5.;
-	bool converged = false;
-	while (q < 50 && !converged)
-	{
-		param_inputs.mflow_tot = test*mguess;
-		solve_transient_model(1.e6, 150.0, param_inputs, trans_inputs, trans_outputs); // Solve for SS outlet T
-		Tdiff = trans_outputs.tout - m_T_htf_hot_des;
-		if (Tdiff >= 0 && Tdiff <= tol)
-		{
-			converged = true;
-			soln = test;
-		}
-		if (Tdiff > 0)
-			low = test;
-		else
-			high = test;
-		test = 0.5*(low + high);
-		q++;
-	}
-
-	// Determine required startup time
-	param_inputs.mflow_tot = soln*mguess;
-	param_inputs.ramptime = m_flux_ramp_time;
-	param_inputs.finitial = 0.0;
-	if (m_flux_ramp_time == 0.0)
-		param_inputs.finitial = 1.0;
-	solve_transient_startup_model(param_inputs, trans_inputs, CIRCULATE, m_T_htf_hot_des, 0.0, 1.e6, trans_outputs, time_circulate, circulate_energy, parasitic);
-
+	double time_circulate, circulate_energy, parasitic;
+	solve_transient_startup_model(param_inputs, trans_inputs, CIRCULATE, m_T_htf_hot_des + m_startup_target_delta, 0.0, 1.e6, trans_outputs, time_circulate, circulate_energy, parasitic);
 	if (time_circulate == 1.e6)  // Transient model solution did not converge, use simple approximation of startup time instead
 	{
 		double tube_lam1 = (param_inputs.mflow_tot / m_n_lines / m_n_t)*param_inputs.c_htf / m_tm.at(1);
@@ -4126,12 +4073,12 @@ void C_mspt_receiver::est_startup_time_energy(double fract, double &est_time, do
 		time_circulate += m_flux_ramp_time * 3600;
 	}
 
+	start_time += time_circulate;
+	start_time = fmax(start_time, m_rec_su_delay*3600.0);
+	start_energy += circulate_energy * 1.e-6 / 3600.0;
 
-	time_startup = time_heattrace + time_preheat + time_fill + time_circulate;
-	time_startup = fmax(time_startup, m_rec_su_delay*3600.0);
-	est_time = time_startup;
-	est_energy = ((time_preheat+time_fill)*(m_tube_flux_preheat *1000.0* m_od_tube * m_h_rec * m_n_t * m_n_panels) + circulate_energy) * 1.e-6 / 3600.0;		//Energy utilized during the estimated startup time (MWt-hr)
-
+	est_time = start_time;
+	est_energy = start_energy;
 }
 
 
@@ -4152,22 +4099,28 @@ double C_mspt_receiver::est_heattrace_energy()
 
 double C_mspt_receiver::get_startup_time()
 {
-    double startup_time = std::numeric_limits<double>::quiet_NaN();
-    double startup_energy = std::numeric_limits<double>::quiet_NaN();
-    double fract = 0.4;  // Approximate mass flow / design point mass flow during startup
-    
-    est_startup_time_energy(fract, startup_time, startup_energy);
-
+	double startup_time = std::numeric_limits<double>::quiet_NaN();
+	if (!m_is_startup_transient)
+		startup_time = m_rec_su_delay * 3600.; 
+	else
+	{
+		double startup_energy = std::numeric_limits<double>::quiet_NaN();
+		double fract = 0.4;  // Approximate mass flow / design point mass flow during startup
+		est_startup_time_energy(fract, startup_time, startup_energy);
+	}
     return startup_time;    // [s]
 }
 
 double C_mspt_receiver::get_startup_energy()
 {
-    double startup_time = std::numeric_limits<double>::quiet_NaN();
-    double startup_energy = std::numeric_limits<double>::quiet_NaN();
-    double fract = 0.4;  // Approximate mass flow / design point mass flow during startup
-
-    est_startup_time_energy(fract, startup_time, startup_energy);		// Startup energy in MWt-hr
-
+	double startup_energy = std::numeric_limits<double>::quiet_NaN();
+	if (!m_is_startup_transient)
+		startup_energy = m_rec_qf_delay * m_q_rec_des * 1.e-6;
+	else
+	{
+		double startup_time = std::numeric_limits<double>::quiet_NaN();
+		double fract = 0.4;  // Approximate mass flow / design point mass flow during startup
+		est_startup_time_energy(fract, startup_time, startup_energy);	
+	}
     return startup_energy;  // [MWh]
 }

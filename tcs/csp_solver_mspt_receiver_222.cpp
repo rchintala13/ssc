@@ -499,8 +499,8 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 	q_conv_sum = soln.Q_conv_sum;
 	q_rad_sum = soln.Q_rad_sum;
 	q_dot_piping_loss = soln.Q_dot_piping_loss;
-	q_dot_inc_sum = soln.Q_inc_sum / 1000.;
-	q_dot_inc_min_panel = soln.Q_inc_min / 1000;
+	q_dot_inc_sum = soln.Q_inc_sum;
+	q_dot_inc_min_panel = soln.Q_inc_min;
 
 	m_T_s = soln.T_s;
 	m_T_panel_in = soln.T_panel_in;
@@ -624,7 +624,7 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 				q_thermal = m_dot_salt_tot*c_p_coolant*(T_salt_hot - T_salt_cold_in);
 
 				//if( q_thermal < m_q_rec_min )
-				if(q_dot_inc_sum*1.E3 < m_q_dot_inc_min)
+				if(q_dot_inc_sum < m_q_dot_inc_min)
 				{
 					// If output here is less than specified allowed minimum, then need to shut off receiver
 					m_mode = C_csp_collector_receiver::OFF;
@@ -653,7 +653,7 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 		q_thermal_ss = m_dot_salt_tot_ss*c_p_coolant*(T_salt_hot - T_salt_cold_in);
 
 		// After convergence, determine whether the mass flow rate falls below the lower limit
-		if(q_dot_inc_sum*1.E3 < m_q_dot_inc_min)
+		if(q_dot_inc_sum < m_q_dot_inc_min)
 		{
 			// GOTO 900
 			// Steady State always reports q_thermal (even when much less than min) because model is letting receiver begin startup with this energy
@@ -702,7 +702,7 @@ void C_mspt_receiver_222::call(const C_csp_weatherreader::S_outputs &weather,
 	outputs.m_T_salt_hot = T_salt_hot - 273.15;				//[C] convert from K
 	outputs.m_field_eff_adj = field_eff_adj;					//[-]
 	outputs.m_component_defocus = m_od_control;				//[-]
-	outputs.m_q_dot_rec_inc = q_dot_inc_sum / 1.E3;			//[MW] convert from kW
+	outputs.m_q_dot_rec_inc = q_dot_inc_sum / 1.E6;			//[MW] convert from W
 	outputs.m_q_startup = q_startup/1.E6;					//[MW-hr] convert from W-hr
 	outputs.m_dP_receiver = DELTAP*m_n_panels / m_n_lines / 1.E5;	//[bar] receiver pressure drop, convert from Pa
 	outputs.m_dP_total = Pres_D*10.0;						//[bar] total pressure drop, convert from MPa
@@ -851,7 +851,7 @@ double C_mspt_receiver_222::get_clearsky(const C_csp_weatherreader::S_outputs &w
 			model = "Meinel model";
 		else if (m_clearsky_model == 2)
 			model = "Hottel model";
-		else if (m_clearsky_model == 3)     // Note, names of Allen/Moon model are reveresed in Ambient.cpp compared to Delsol2 documentation
+		else if (m_clearsky_model == 3)    
 			model = "Moon model";
 		else if (m_clearsky_model == 4)
 			model = "Allen model";
@@ -911,7 +911,7 @@ util::matrix_t<double> C_mspt_receiver_222::calculate_flux_profiles(double dni, 
 			if (ceiling > m_n_flux_x - 1) ceiling = 0;
 
 			double psp_field = (ind*(flux.at(ceiling) - flux.at(flo)) + flux.at(flo));		//[kW/m^2] Average area-specific power for each node			
-			q_dot_inc.at(i) = m_A_node * psp_field;											//[kW] The power incident on each node
+			q_dot_inc.at(i) = m_A_node * psp_field*1000;									//[W] The power incident on each node
 
 		}
 	}
@@ -978,7 +978,7 @@ util::matrix_t<double> C_mspt_receiver_222::calculate_flux_profiles(double dni, 
 					q_flux_sum += flux[j];
 				}
 			}
-			q_dot_inc.at(i) = q_flux_sum * m_A_node / n_flux_x_d * n_panels_d;
+			q_dot_inc.at(i) = q_flux_sum * m_A_node / n_flux_x_d * n_panels_d*1000;
 		}
 
 	}
@@ -1109,7 +1109,7 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 				// Radiation from the receiver - Calculate the radiation node by node
 				soln.q_dot_rad.at(i_fp) = 0.5*CSP::sigma*m_epsilon*m_A_node*(2.0*pow(soln.T_s.at(i_fp), 4) - pow(T_amb, 4) - pow(T_sky, 4))*m_hl_ffact;	//[W] Total radiation losses per node
 				soln.q_dot_loss.at(i_fp) = soln.q_dot_rad.at(i_fp) + soln.q_dot_conv.at(i_fp);			//[W] Total overall losses per node
-				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp)*1000.0 - soln.q_dot_loss.at(i_fp);	//[W] Absorbed flux at each node
+				soln.q_dot_abs.at(i_fp) = soln.q_dot_inc.at(i_fp) - soln.q_dot_loss.at(i_fp);			//[W] Absorbed flux at each node
 
 				// Calculate the temperature drop across the receiver tube wall... assume a cylindrical thermal resistance
 				double T_wall = (soln.T_s.at(i_fp) + soln.T_panel_ave.at(i_fp)) / 2.0;				//[K] The temperature at which the conductivity of the wall is evaluated
@@ -1226,14 +1226,14 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 	soln.Q_conv_sum = 0.0;
 	soln.Q_rad_sum = 0.0;
 	soln.Q_abs_sum = 0.0;
-	soln.Q_inc_min = soln.q_dot_inc.at(0) * 1000;
+	soln.Q_inc_min = soln.q_dot_inc.at(0);
 	for (int i = 0; i < m_n_panels; i++)
 	{
-		soln.Q_inc_sum += soln.q_dot_inc.at(i)*1000.;
+		soln.Q_inc_sum += soln.q_dot_inc.at(i);
 		soln.Q_conv_sum += soln.q_dot_conv.at(i);
 		soln.Q_rad_sum += soln.q_dot_rad.at(i);
 		soln.Q_abs_sum += soln.q_dot_abs.at(i);
-		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i) * 1000);
+		soln.Q_inc_min = fmin(soln.Q_inc_min, soln.q_dot_inc.at(i));
 	}
 	soln.Q_thermal = soln.Q_abs_sum - soln.Q_dot_piping_loss;
 
@@ -1273,7 +1273,7 @@ void C_mspt_receiver_222::solve_for_mass_flow(s_steady_state_soln &soln, const C
 		for (int i = 0; i < m_n_panels; i++)
 			q_dot_inc_sum += soln.q_dot_inc.at(i);		//[kW] Total power absorbed by receiver
 
-		double c_guess = field_htfProps.Cp((m_T_salt_hot_target + soln.T_salt_cold_in) / 2.0);	//[kJ/kg-K] Estimate the specific heat of the fluid in receiver
+		double c_guess = field_htfProps.Cp((m_T_salt_hot_target + soln.T_salt_cold_in) / 2.0)*1000.;	//[kJ/kg-K] Estimate the specific heat of the fluid in receiver
 
 		if (soln.dni > 1.E-6)
 		{
@@ -1337,6 +1337,7 @@ void C_mspt_receiver_222::solve_for_mass_flow(s_steady_state_soln &soln, const C
 			{
 				soln.mode = C_csp_collector_receiver::OFF;
 				soln.rec_is_off = true;
+				break;
 			}
 		}
 	}
