@@ -838,7 +838,7 @@ util::matrix_t<double> C_mspt_receiver_222::calculate_flux_profiles(double dni, 
 			double ppos = (n_flux_x_d / n_panels_d * i + n_flux_x_d * 0.5 / n_panels_d);
 			int flo = (int)floor(ppos);
 			int ceiling = (int)ceil(ppos);
-			double ind = (int)((ppos - flo) / fmax((double)(ceiling - flo), 1.e-6));
+			double ind = (int)((ppos - flo) / fmax((double)ceiling - (double)flo, 1.e-6));
 			if (ceiling > m_n_flux_x - 1) ceiling = 0;
 
 			double psp_field = (ind*(flux.at(ceiling) - flux.at(flo)) + flux.at(flo));		//[kW/m^2] Average area-specific power for each node			
@@ -868,7 +868,7 @@ util::matrix_t<double> C_mspt_receiver_222::calculate_flux_profiles(double dni, 
 
 		double panel_step = n_flux_x_d / n_panels_d;   //how many flux points are stepped over by each panel?
 
-		for (int i = 0; i<m_n_panels; i++)
+		for (size_t i = 0; i<m_n_panels; i++)
 		{
 			double panel_pos = panel_step * (i + 1);   //Where does the current panel end in the flux array?
 
@@ -1017,14 +1017,9 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 		double beta = 1.0 / T_amb;													//[1/K] Volumetric expansion coefficient
 		double nu_amb = ambient_air.visc(T_amb) / ambient_air.dens(T_amb, P_amb);	//[m^2/s] Kinematic viscosity		
 
-		
-		//for (int i = 0; i < m_n_panels; i++)   // Old convention to loop over panels in number order
-		//{
-			//int i_fp = i;
-
-		for (int j = 0; j < m_n_lines; j++)   // Updated to loop over panels in flow order
+		for (size_t j = 0; j < m_n_lines; j++)   // Updated to loop over panels in flow order
 		{
-			for (int i = 0; i < m_n_panels / m_n_lines; i++)  
+			for (size_t  i = 0; i < m_n_panels / m_n_lines; i++)
 			{
 				int i_fp = m_flow_pattern.at(j, i);
 
@@ -1077,28 +1072,6 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 				else
 					T_panel_in_guess.at(i_fp) = soln.T_salt_cold_in;
 				
-				
-				// Old code if looping over panels in number order
-				//int j = -1;
-				//int i_comp = -1;
-				//bool found_loc = false;
-				//for (j = 0; j < 2; j++)
-				//{
-				//	for (int abc = 0; abc < m_n_panels / m_n_lines && !found_loc; abc++)
-				//	{
-				//		if (m_flow_pattern.at(j, abc) == i)
-				//			found_loc = true;
-				//		i_comp = abc - 1;
-				//	}
-				//	if (found_loc)
-				//		break;
-				//}
-				// Update panel inlet/outlet temperature guess
-				//if (i_comp == -1)
-				//	T_panel_in_guess.at(i_fp) = soln.T_salt_cold_in;
-				//else
-				//	T_panel_in_guess.at(i_fp) = soln.T_panel_out.at(m_flow_pattern.at(j, i_comp));
-
 
 				T_panel_out_guess.at(i_fp) = T_panel_in_guess.at(i_fp) + soln.q_dot_abs.at(i_fp) / (soln.m_dot_salt*c_p_coolant);		//[K] Energy balance for each node		
 				double Tavg = (T_panel_out_guess.at(i_fp) + T_panel_in_guess.at(i_fp)) / 2.0;											//[K] Panel average temperature
@@ -1113,9 +1086,10 @@ void C_mspt_receiver_222::calculate_steady_state_soln(s_steady_state_soln &soln,
 
 
 		// Calculate average receiver outlet temperature
+		int klast = m_n_panels / m_n_lines - 1;
 		double T_salt_hot_guess_sum = 0.0;
 		for (int j = 0; j < m_n_lines; j++)
-			T_salt_hot_guess_sum += T_panel_out_guess.at(m_flow_pattern.at(j, m_n_panels / m_n_lines - 1));		//[K] Update the calculated hot salt outlet temp
+			T_salt_hot_guess_sum += T_panel_out_guess.at(m_flow_pattern.at(j, klast));		//[K] Update the calculated hot salt outlet temp
 		soln.T_salt_hot = T_salt_hot_guess_sum / (double)m_n_lines;
 
 
@@ -1395,7 +1369,8 @@ void C_mspt_receiver_222::calc_pump_performance(double rho_f, double mdot, doubl
 {
 
     // Pressure drop calculations
-	double u_coolant = mdot / (m_n_lines * m_n_t*rho_f* m_id_tube * m_id_tube * 0.25 * CSP::pi);	//[m/s] Average velocity of the coolant through the receiver tubes
+	double mpertube = mdot / ((double)m_n_lines * (double)m_n_t);
+	double u_coolant = mpertube / (rho_f * m_id_tube * m_id_tube * 0.25 * CSP::pi);	//[m/s] Average velocity of the coolant through the receiver tubes
 
 	double L_e_45 = 16.0;						// The equivalent length produced by the 45 degree bends in the tubes - Into to Fluid Mechanics, Fox et al.
 	double L_e_90 = 30.0;						// The equivalent length produced by the 90 degree bends in the tubes

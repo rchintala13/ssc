@@ -202,13 +202,20 @@ private:
 
 	struct transient_inputs
 	{
-		int nelem;
-		int nztot;
-		int npath;
+		size_t nelem;
+		size_t nztot;
+		size_t npath;
 		double inlet_temp;
 		util::matrix_t<double> lam1, lam2, cval, aval, tinit, tinit_wall, Rtube;
         std::vector<double> length, zpts;
         std::vector<int> nz, startpt;
+
+		transient_inputs()
+		{
+			nelem = nztot = npath = 0;
+			inlet_temp = std::numeric_limits<double>::quiet_NaN();
+		}
+
 	} trans_inputs;
 
 	struct transient_outputs
@@ -233,6 +240,12 @@ private:
 		util::matrix_t<double> t_profile_wall;	// Axial wall temperature profile at the end of the time step[K]
 		util::matrix_t<double> timeavg_temp;	// Time-average outlet temperature of each flow element [K]
 
+		transient_outputs()
+		{
+			timeavg_tout = tout = max_tout = min_tout = max_rec_tout = timeavg_conv_loss = timeavg_rad_loss = timeavg_piping_loss = std::numeric_limits<double>::quiet_NaN();
+			timeavg_qthermal = timeavg_qnet = timeavg_qheattrace  = timeavg_eta_therm = time_min_tout = tube_temp_inlet = tube_temp_outlet = std::numeric_limits<double>::quiet_NaN();
+		}
+
 	} trans_outputs;
 
 	struct parameter_eval_inputs
@@ -240,6 +253,12 @@ private:
 		double T_amb, T_sky, pres, wspd, c_htf, rho_htf, mu_htf, k_htf, Pr_htf, mflow_tot, finitial, ffinal, ramptime;
 		std::vector<double> tm;
 		util::matrix_t<double> Tfeval, Tseval, qinc, qheattrace;
+		
+		parameter_eval_inputs()
+		{
+			T_amb = T_sky = pres = wspd = c_htf = rho_htf = mu_htf = k_htf = Pr_htf = mflow_tot = finitial = ffinal = ramptime = std::numeric_limits<double>::quiet_NaN();
+		}
+
 	} param_inputs;
 
 
