@@ -1101,7 +1101,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 							m_total_ramping_time += ramp_time;
 							time_flow += time;
 							time_remaining -= time;
-							if (time_remaining <= 0.1)			// Target outlet temperature not achieved within the current time step
+							if (time_remaining <= 1e-6 || trans_outputs.tout<circulation_target)  // Target outlet temperature not achieved within the current time step
 								m_startup_mode = CIRCULATE;
 							else
 							{
@@ -1937,7 +1937,7 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 
 		if (soln.dni > 1.E-6)
 		{
-			double q_guess = 0.5*q_dot_inc_sum;		//[W] Estimate the thermal power produced by the receiver			
+			double q_guess = 0.85*q_dot_inc_sum;		//[W] Estimate the thermal power produced by the receiver			
 			m_dot_salt_guess = q_guess / (c_guess*(m_T_salt_hot_target - soln.T_salt_cold_in)*m_n_lines);	//[kg/s] Mass flow rate for each flow path
 		}
 		else	// The tower recirculates at night (based on earlier conditions)
@@ -1981,12 +1981,14 @@ void C_mspt_receiver::solve_for_mass_flow(s_steady_state_soln &soln, const C_csp
 		double tolT = tol;
 		if (fabs(err) > 0.05)  // Allow larger temperature tolerance for early mass flow iterations
 			tolT = 0.005;
+		if (m_dot_salt_guess < 0.5 * m_f_rec_min * m_m_dot_htf_des)
+			tolT = 0.02;
 
 		calculate_steady_state_soln(soln, weather, time, tolT);   // Solve steady state thermal model 
 
 		err = (soln.T_salt_hot - m_T_salt_hot_target) / m_T_salt_hot_target;
 
-		if (soln.rec_is_off)  // SS soluion was unsuccessful or resulted in an infeasible exit temperature -> remove outlet T for solution to start next iteration from the default intial guess
+		if (soln.rec_is_off)  // SS solution was unsuccessful or resulted in an infeasible exit temperature -> remove outlet T for solution to start next iteration from the default intial guess
 			soln.T_salt_hot = std::numeric_limits<double>::quiet_NaN();
 
 		if (fabs(err) > tol)
@@ -3823,26 +3825,13 @@ void C_mspt_receiver::solve_transient_startup_model(parameter_eval_inputs &pinpu
 			}
 
 			// Flux ramp is finished -> find time at which outlet temperature reaches target value
-			double upperbound = max_time;
 			double lowerbound = 0.0;
 			if (min_time > 0.01)
-				lowerbound = fmin(min_time, max_time);		// Redefine lower bound if previously defined from "Hold" mode
-
-			// Estimate time required to reach SS downcomer outlet T
-			update_pde_parameters(true, pinputs, tinputs);
-			double time_ss_outlet = 0.0;
-			for (int i = 0; i < m_n_lines; i++)
-			{
-				double time_ss = 0.0;
-				for (int j = 0; j < m_n_elem; j++)
-					time_ss = time_ss + tinputs.length.at(j) / tinputs.lam1.at(j, i);
-				time_ss_outlet = fmax(time_ss_outlet, time_ss);
-			}
-			upperbound = fmin(time_ss_outlet, max_time);
-			upperbound = fmax(upperbound, lowerbound);
+				lowerbound = fmin(min_time, max_time);		// Redefine lower bound if previously defined from "Hold" mode			
+			double upperbound = fmax(max_time, lowerbound);
 			circulate_time = upperbound;
 			solve_transient_model(circulate_time, max_Trise, pinputs, tinputs, toutputs);		
-
+			
 			if (toutputs.tout < target_temperature)	// Target outlet temperature not achieved within the current time step
 				circulate_time = max_time;
 			else
@@ -3850,22 +3839,74 @@ void C_mspt_receiver::solve_transient_startup_model(parameter_eval_inputs &pinpu
 				if (toutputs.min_tout < target_temperature)		// Outlet temperature drops below the target during the time step --> set lower bound to time when minimum outlet T occurs
 					lowerbound = fmax(lowerbound, toutputs.time_min_tout);
 
-				// Find time at which outlet temperature reaches target value 
-				double Tdiff = toutputs.tout - target_temperature;
-				double temp_tol = 2.0;
-				double time_tol = 20.0;
-				while ((Tdiff < 0.0 || Tdiff > temp_tol) && (upperbound - lowerbound > time_tol))	// Outlet temperature is less than the target, or greater than the target by more than the designated tolerance
+				// Estimate expected time to reach steady state
+				update_pde_parameters(true, pinputs, tinputs);
+				std::vector<double> est_time_ss(m_n_elem, 0.0);
+				double time_ss;
+				for (size_t i = 0; i < m_n_lines; i++)
 				{
-					circulate_time = 0.5*(upperbound + lowerbound);
-					solve_transient_model(circulate_time, max_Trise, pinputs, tinputs, toutputs);
-					Tdiff = toutputs.tout - target_temperature;
-					if (Tdiff < 0.0)
-						lowerbound = circulate_time;
-					else
-						upperbound = circulate_time;
+					std::vector<double> est_time_ss_path(m_n_elem, 0.0);
+					for (size_t j = 0; j < m_n_elem; j++)
+					{
+						est_time_ss_path.at(j) = tinputs.length.at(j) / tinputs.lam1.at(j, i) + ((j == 0) ? 0 : est_time_ss_path.at(j - 1));
+						est_time_ss.at(j) = fmax(est_time_ss.at(j), est_time_ss_path.at(j));
+					}
+
 				}
+
+				// Find time at which outlet temperature reaches target value 
+				if (tinputs.tinit.at(0, 0) - tinputs.inlet_temp < m_startup_target_delta) // Can't get to target T until inlet T step change reaches downcomer outlet
+					circulate_time = est_time_ss.back();
+				else
+				{
+					double t, tprev, tsolve, f, fprev, fsolve;
+					t = tprev = f = fprev = std::numeric_limits<double>::quiet_NaN();
+					double ttol = 0.05;  // Need < 0.1s for interaction with solver
+					double ftol = 0.01;
+					int q = 0;
+					while (q < 100)
+					{
+						if (q == 0 && toutputs.tout - target_temperature < 0.5) // Solution at max time step is close (controller iterations for timestep use +0.05s buffer)
+						{
+							t = upperbound;
+							f = toutputs.tout - target_temperature;
+							tsolve = t - 0.1;
+						}
+						else if (q == 0)  // No good first guess, use time required for receiver outlet (before downcomer) to reach steady state
+							tsolve = est_time_ss.at((size_t)m_n_elem - 2);
+						else if (fprev != fprev)
+							tsolve = fsolve > 0 ? est_time_ss.at((size_t)m_n_elem - 3) : tsolve + 10;
+						else if (f < 0 && fprev < 0 && fabs(f - fprev) < 0.1)  // Below target, but converging slowly
+							tsolve = fabs(f) < 0.01 ? tsolve + 0.05 : tsolve + 0.5;
+						else if (f>0 && fprev>0 && fabs(f - fprev) < 0.2) // Above target, likely near steady state solution
+							tsolve = 0.5 * (upperbound + lowerbound);
+						else
+							tsolve = t - f * (t - tprev) / (f - fprev) + 0.001; // Add small increase to end up on high side of target when nearly converged
+
+						if (tsolve <= lowerbound || tsolve >= upperbound)
+							tsolve = 0.5 * (upperbound + lowerbound);
+
+						solve_transient_model(tsolve, max_Trise, pinputs, tinputs, toutputs);
+						fsolve = toutputs.tout - target_temperature;
+						if (fsolve < 0.0)
+							lowerbound = tsolve;
+						else
+							upperbound = tsolve;
+
+						if (fsolve > 0.0 && (fsolve < ftol || (upperbound - lowerbound) < ttol))
+							break;
+
+						tprev = t;
+						fprev = f;
+						t = tsolve;
+						f = fsolve;
+						q++;
+					}
+					circulate_time = tsolve;
+				}
+
 				if (circulate_time == max_time)
-					circulate_time -= 0.01;   // Target temperature achieved, report time < max_time to move to next stage
+					circulate_time -= 1.0;   // Target temperature achieved, report time < max_time to move to next stage
 			}
 
 			circulate_energy += toutputs.timeavg_qnet * circulate_time; // Energy [J] used for startup during the time step
