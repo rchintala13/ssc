@@ -142,9 +142,9 @@ double C_pt_receiver::get_clearsky(const C_csp_weatherreader::S_outputs &weather
 			csky = (1. - .14 * alt) * exp(-.357 / pow(czen, .678)) + .14 * alt;
 		else if (m_clearsky_model == 2)  // Hottel
 			csky = 0.4237 - 0.00821 * pow(6. - alt, 2) + (0.5055 + 0.00595 * pow(6.5 - alt, 2)) * exp(-(0.2711 + 0.01858 * pow(2.5 - alt, 2)) / (czen + .00001));
-		else if (m_clearsky_model == 3)  // Moon
+		else if (m_clearsky_model == 3)  // Allen
 			csky = 1.0 - 0.263 * ((del_h2o + 2.72) / (del_h2o + 5.0)) * pow((save * dpres), (0.367 * ((del_h2o + 11.53) / (del_h2o + 7.88))));
-		else if (m_clearsky_model == 4)  // Allen
+		else if (m_clearsky_model == 4)  // Moon
 			csky = 0.183 * exp(-save * dpres / 0.48) + 0.715 * exp(-save * dpres / 4.15) + .102;
 
 		clearsky = std::fmax(0.0, csky * S0 * 1000.);
