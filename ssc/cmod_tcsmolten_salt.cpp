@@ -1688,6 +1688,8 @@ public:
         receiver->m_night_recirc = 0;
 
 		receiver->m_clearsky_model = as_integer("rec_clearsky_model");
+        if (receiver->m_clearsky_model > 4)
+            throw exec_error("tcsmolten_salt", "Invalid specification for 'rec_clearsky_model'");
 		if (receiver->m_clearsky_model == -1 && as_double("rec_flow_control_fraction")<0.999)
 			throw exec_error("tcsmolten_salt", "'rec_clearsky_model' must be specified when 'rec_flow_control_fraction' < 1.0.");
 

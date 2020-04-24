@@ -119,34 +119,35 @@ double C_pt_receiver::get_clearsky(const C_csp_weatherreader::S_outputs &weather
 		for (int j = 0; j < m; j++)
 			doy += monthlen[j];
 
-		Ambient A;
-		var_map V;
-		V.amb.latitude.val = weather.m_lat;
-		V.amb.longitude.val = weather.m_lon;
-		V.amb.time_zone.val = weather.m_tz;
-		V.amb.elevation.val = weather.m_elev;
-
 		double pres = weather.m_pres;
-		if (pres < 20. && pres > 1.0)  // Some weather files seem to have inconsistent pressure units... make sure that value is of correct order of magnitude
-			pres = weather.m_pres*100.;  // convert to mbar
-		V.amb.dpres.val = pres * 1.e-3 * 0.986923;  // Ambient pressure in atm
-		V.amb.del_h2o.val = exp(0.058*weather.m_tdew + 2.413);  // Correlation for precipitable water in mm H20 (from Choudhoury INTERNATIONAL JOURNAL OF CLIMATOLOGY, VOL. 16, 663-475 (1996))
+		if (pres < 20. && pres > 1.0)				// Some weather files seem to have inconsistent pressure units... make sure that value is of correct order of magnitude
+			pres = weather.m_pres * 100.;			// convert to mbar
+		double dpres = pres * 1.e-3 * 0.986923;		// Ambient pressure in atm
+		double del_h2o = exp(0.058 * weather.m_tdew + 2.413);  // Correlation for precipitable water in mm H20 (from Choudhoury INTERNATIONAL JOURNAL OF CLIMATOLOGY, VOL. 16, 663-475 (1996))
 
-		std::string model;
-		if (m_clearsky_model == 1)
-			model = "Meinel model";
-		else if (m_clearsky_model == 2)
-			model = "Hottel model";
-		else if (m_clearsky_model == 3)     // Note, names of Allen/Moon model are reveresed in Ambient.cpp compared to Delsol2 documentation
-			model = "Moon model";
-		else if (m_clearsky_model == 4)
-			model = "Allen model";
-
-		V.amb.insol_type.val = model;
+		// Methods taken from SolarPilot Ambient class
+		double S0 = 1.353 * (1. + .0335 * cos(2. * PI * (doy + 10.) / 365.));
 		double zenith = weather.m_solzen * 3.14159 / 180.;
 		double azimuth = weather.m_solazi * 3.14159 / 180.;
-		clearsky = A.calcInsolation(V, azimuth, zenith, doy);
-		clearsky = std::fmax(0.0, clearsky);
+		double szen = sin(zenith);
+		double czen = cos(zenith);
+		double save2 = 90. - atan2(szen, czen) * R2D;
+		double save = 1.0 / czen;
+		if (save2 <= 30.)
+			save = save - 41.972213 * pow(save2, (-2.0936381 - 0.04117341 * save2 + 0.000849854 * pow(save2, 2)));
+
+		double alt = weather.m_elev / 1000.;
+		double csky = 0.0;
+		if (m_clearsky_model == 1)  // Meinel
+			csky = (1. - .14 * alt) * exp(-.357 / pow(czen, .678)) + .14 * alt;
+		else if (m_clearsky_model == 2)  // Hottel
+			csky = 0.4237 - 0.00821 * pow(6. - alt, 2) + (0.5055 + 0.00595 * pow(6.5 - alt, 2)) * exp(-(0.2711 + 0.01858 * pow(2.5 - alt, 2)) / (czen + .00001));
+		else if (m_clearsky_model == 3)  // Moon
+			csky = 1.0 - 0.263 * ((del_h2o + 2.72) / (del_h2o + 5.0)) * pow((save * dpres), (0.367 * ((del_h2o + 11.53) / (del_h2o + 7.88))));
+		else if (m_clearsky_model == 4)  // Allen
+			csky = 0.183 * exp(-save * dpres / 0.48) + 0.715 * exp(-save * dpres / 4.15) + .102;
+
+		clearsky = std::fmax(0.0, csky * S0 * 1000.);
 	}
 
 	return clearsky;
