@@ -116,6 +116,12 @@ private:
 		bool rec_is_off;
 		int itermode;
 
+		double hour;				// Hour of the year 
+		double T_amb;				// Dry bulb temperature (K)
+		double T_dp;				// Dewpoint temperature (K)
+		double v_wind_10;			// Wind speed at 10m (m/s)
+		double p_amb;				// Ambient pressure (Pa)
+
 		double dni;					// DNI for this solution
 		double field_eff;			// Field efficiency for this solution
 
@@ -159,6 +165,7 @@ private:
 
 		void clear()
 		{
+			hour = T_amb = T_dp = v_wind_10 = p_amb = std::numeric_limits<double>::quiet_NaN();
 			dni = od_control = field_eff = m_dot_salt = m_dot_salt_tot = T_salt_cold_in = T_salt_hot = T_salt_hot_rec = T_salt_props = std::numeric_limits<double>::quiet_NaN();
 			u_salt = f = Q_inc_sum = Q_conv_sum = Q_rad_sum = Q_abs_sum = Q_dot_piping_loss = Q_inc_min = Q_thermal = eta_therm = std::numeric_limits<double>::quiet_NaN();
 			mode = itermode = -1;
@@ -269,10 +276,10 @@ private:
 	void initialize_transient_parameters();
 	bool use_previous_solution(const s_steady_state_soln& soln, const s_steady_state_soln& soln_prev);
 	util::matrix_t<double> calculate_flux_profiles(double dni, double field_eff, double od_control, const util::matrix_t<double> *flux_map_input);
-	void calculate_steady_state_soln(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, double tol, int max_iter = 50);
-	void solve_for_mass_flow(s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time);
-	void solve_for_mass_flow_and_defocus(s_steady_state_soln &soln, double m_dot_htf_max, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time);
-	void solve_for_defocus_given_flow(s_steady_state_soln &soln, const util::matrix_t<double> *flux_map_input, const C_csp_weatherreader::S_outputs &weather, double time);
+	void calculate_steady_state_soln(s_steady_state_soln &soln, double tol, int max_iter = 50);
+	void solve_for_mass_flow(s_steady_state_soln &soln);
+	void solve_for_mass_flow_and_defocus(s_steady_state_soln &soln, double m_dot_htf_max, const util::matrix_t<double> *flux_map_input);
+	void solve_for_defocus_given_flow(s_steady_state_soln &soln, const util::matrix_t<double> *flux_map_input);
 
 
 
@@ -290,7 +297,7 @@ private:
 	void calc_ss_profile(const transient_inputs &tinputs, util::matrix_t<double> &tprofile, util::matrix_t<double> &tprofile_wall);
 	void calc_axial_profile( double tpt, const transient_inputs &tinputs, util::matrix_t<double> &tprofile);
 	void calc_extreme_outlet_values(double tstep, int flowid, const transient_inputs &tinputs, util::matrix_t<double> &textreme, util::matrix_t<double> &tpt);	
-	void initialize_transient_param_inputs(const s_steady_state_soln &soln, const C_csp_weatherreader::S_outputs &weather, double time, parameter_eval_inputs &pinputs);
+	void initialize_transient_param_inputs(const s_steady_state_soln &soln, parameter_eval_inputs &pinputs);
 	void update_pde_parameters(bool use_initial_t, parameter_eval_inputs &pinputs, transient_inputs &tinputs);
 	void solve_transient_model(double tstep, double allowable_Trise, parameter_eval_inputs &pinputs, transient_inputs &tinputs, transient_outputs &toutputs);
 	void solve_transient_startup_model(parameter_eval_inputs &pinputs, transient_inputs &tinputs, int startup_mode, double target_temperature, double min_time, double max_time, transient_outputs &toutputs, double &startup_time, double &energy, double &parasitic);
