@@ -166,7 +166,7 @@ C_mspt_receiver::C_mspt_receiver()
 	m_total_fill_time = std::numeric_limits<double>::quiet_NaN();
 	m_crossover_index = -1;
 
-	m_flow_control_frac = std::numeric_limits<double>::quiet_NaN();
+	m_csky_frac = std::numeric_limits<double>::quiet_NaN();
 
 }
 
@@ -682,7 +682,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 	else
 	{
 		//--- Solve for mass flow at actual and/or clear-sky DNI extremes
-		if (m_flow_control_frac > 0.0 || fabs(I_bn - clearsky_adj) < 0.001)  // Solve for mass flow at actual DNI?
+		if (m_csky_frac <= 0.9999 || fabs(I_bn - clearsky_adj) < 0.001)  // Solve for mass flow at actual DNI?
 		{
 			soln_actual = soln;  // Sets initial solution properties (inlet T, initial defocus control, etc.)
 			soln_actual.dni = I_bn;
@@ -693,7 +693,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 
 		}
 
-		if (m_flow_control_frac < 1.0) // Solve for mass flow at clear-sky DNI?
+		if (m_csky_frac >= 0.0001) // Solve for mass flow at clear-sky DNI?
 		{
 			if (fabs(I_bn - clearsky_adj) < 0.001)
 				soln_clearsky = soln_actual;
@@ -714,7 +714,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 
 
 		//--- Set mass flow and calculate final solution
-		if (fabs(I_bn - clearsky_adj) < 0.001 || m_flow_control_frac == 1.0)  // Flow control based on actual DNI
+		if (fabs(I_bn - clearsky_adj) < 0.001 || m_csky_frac < 0.0001)  // Flow control based on actual DNI
 			soln = soln_actual;
 
 		else if (soln_clearsky.rec_is_off)    // Receiver can't operate at this time point 
@@ -723,7 +723,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 			soln.q_dot_inc = soln_clearsky.q_dot_inc;
 		}
 
-		else if (m_flow_control_frac < 0.001)   // Flow control based only on clear-sky DNI
+		else if (m_csky_frac > 0.9999)   // Flow control based only on clear-sky DNI
 		{
 			soln.m_dot_salt = soln_clearsky.m_dot_salt;
 			soln.rec_is_off = soln_clearsky.rec_is_off;
@@ -741,7 +741,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 			}
 
 			soln.rec_is_off = false;
-			soln.m_dot_salt = m_flow_control_frac * soln_actual.m_dot_salt + (1.0 - m_flow_control_frac) * soln_clearsky.m_dot_salt;  // weighted average of clear-sky and actual DNI
+			soln.m_dot_salt = (1.0 - m_csky_frac) * soln_actual.m_dot_salt + m_csky_frac * soln_clearsky.m_dot_salt;  // weighted average of clear-sky and actual DNI
 
 			if (soln_clearsky.od_control >= 0.9999)  // No defocus in either clear-sky or actual DNI solutions
 			{
@@ -751,7 +751,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 			}
 			else
 			{
-				soln.od_control = m_flow_control_frac * soln_actual.od_control + (1.0 - m_flow_control_frac) * soln_clearsky.od_control;
+				soln.od_control = (1.0 - m_csky_frac) * soln_actual.od_control + m_csky_frac * soln_clearsky.od_control;
 				solve_for_defocus_given_flow(soln, flux_map_input);     // Solve for defocus to achieve as close as possible to target outlet T with this mass flow and actual DNI conditions
 			}
 
@@ -807,7 +807,7 @@ void C_mspt_receiver::call(const C_csp_weatherreader::S_outputs &weather,
 
 	double q_thermal_steadystate = soln.Q_thermal;
 	double q_thermal_csky = 0.0;
-	if (m_flow_control_frac < 1.0)
+	if (m_csky_frac > 0.0001)
 		q_thermal_csky = soln_clearsky.Q_thermal;  // Steady state thermal power with clearsky DNI
 
 

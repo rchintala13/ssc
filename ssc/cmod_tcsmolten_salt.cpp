@@ -165,7 +165,7 @@ static var_info _cm_vtab_tcsmolten_salt[] = {
 	
 	{ SSC_INPUT,     SSC_NUMBER, "rec_clearsky_model",				   "Clearsky model: None = -1, User-defined data = 0, Meinel = 1; Hottel = 2; Allen = 3; Moon = 4",											  "",             "",                                  "Tower and Receiver",                       "?=-1",															   "",              ""},
 	{ SSC_INPUT,     SSC_ARRAY,  "rec_clearsky_dni",					"User-defined clear-sky DNI",																											  "W/m2",         "",                                  "Tower and Receiver",                       "rec_clearsky_model=0",											   "",              ""},
-	{ SSC_INPUT,     SSC_NUMBER, "rec_flow_control_fraction",          "Weighting fraction on actual DNI for receiver flow control (0 = clear-sky control, 1 = perfect control using actual DNI)",                "",             "",                                  "Tower and Receiver",                       "?=1.0",                                                            "",              ""},
+	{ SSC_INPUT,     SSC_NUMBER, "rec_clearsky_fraction",               "Weighting fraction on clear-sky DNI for receiver flow control",                                                                          "",             "",                                  "Tower and Receiver",                       "?=0.0",                                                            "",              ""},
 
     // Transient receiver parameters
 	{ SSC_INPUT,     SSC_NUMBER, "is_rec_model_trans",                 "Formulate receiver model as transient?",                                                                                                  "",             "",                                  "Tower and Receiver",                       "?=0",                                                              "",              ""},
@@ -1613,7 +1613,7 @@ public:
             ss_receiver->m_T_salt_hot_target = as_double("T_htf_hot_des");
             ss_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             ss_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
-			ss_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
+			ss_receiver->m_csky_frac = as_double("rec_clearsky_fraction");
 
             receiver = std::move(ss_receiver);
         }
@@ -1641,7 +1641,7 @@ public:
             trans_receiver->m_T_salt_hot_target = as_double("T_htf_hot_des");
             trans_receiver->m_hel_stow_deploy = as_double("hel_stow_deploy");
             trans_receiver->m_is_iscc = false;    // Set parameters that were set with TCS defaults
-			trans_receiver->m_flow_control_frac = as_double("rec_flow_control_fraction");
+			trans_receiver->m_csky_frac = as_double("rec_clearsky_fraction");
 
 
             // Inputs for transient receiver model

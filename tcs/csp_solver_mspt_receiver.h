@@ -377,7 +377,7 @@ public:
 	int m_cycle_config;
 	
 	// Flow control
-	double m_flow_control_frac;
+	double m_csky_frac;
 
 	S_outputs outputs;
 
