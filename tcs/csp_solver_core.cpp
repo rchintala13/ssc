@@ -3831,7 +3831,7 @@ void C_csp_solver::Ssimulate(C_csp_solver::S_sim_setup & sim_setup)
 			mhot_avail = mdot_disch * mc_kernel.mc_sim_info.ms_ts.m_step;  //kg
 
 			double e_tes_ch, mdot_ch, Tch;
-			mc_tes.charge_avail_est(Tdisch, mc_kernel.mc_sim_info.ms_ts.m_step, e_tes_ch, mdot_ch, Tch);
+			mc_tes.charge_avail_est(m_cycle_T_htf_hot_des, mc_kernel.mc_sim_info.ms_ts.m_step, e_tes_ch, mdot_ch, Tch);
 			mcold_avail = mdot_ch * mc_kernel.mc_sim_info.ms_ts.m_step;  //kg
         }
 
