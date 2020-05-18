@@ -54,7 +54,7 @@ var_info vtab_battery_inputs[] = {
 	{ SSC_INPUT,        SSC_NUMBER,      "inv_pd_paco",                                "Inverter Partload Maximum AC Power",                      "Wac",     "",                     "Inverter",       "",                           "",                              "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "inv_cec_cg_eff_cec",                         "Inverter Coefficient Generator CEC Efficiency",           "%",       "",                     "Inverter",       "",                           "",                              "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "inv_cec_cg_paco",                            "Inverter Coefficient Generator Max AC Power",             "Wac",       "",                   "Inverter",       "",                           "",                              "" },
-	{ SSC_INPUT,        SSC_NUMBER,      "batt_ac_or_dc",                              "Battery interconnection (AC or DC)",                      "",        "0=DC_Connected,1=AC_Connected",                  "BatterySystem",       "",                           "",                              "" },
+	{ SSC_INPUT,        SSC_NUMBER,      "batt_ac_or_dc",                              "Battery interconnection (AC or DC)",                      "",        "0=DC_Connected,1=AC_Connected",                  "BatterySystem",       "?=1",                           "BOOLEAN",                              "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "batt_dc_dc_efficiency",                      "PV DC to battery DC efficiency",                          "",        "",                     "BatterySystem",       "",                           "",                              "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "dcoptimizer_loss",                           "PV loss in DC/DC w/MPPT conversion",                      "",        "",                     "Losses",       "",                           "",                              "" },
 	{ SSC_INPUT,        SSC_NUMBER,      "batt_dc_ac_efficiency",                      "Battery DC to AC efficiency",                             "",        "",                     "BatterySystem",       "",                           "",                              "" },
@@ -348,7 +348,7 @@ battstor::battstor(var_table& vt, bool setup_model, size_t nrec, double dt_hr, c
 			batt_vars->batt_power_discharge_max_kwac = vt.as_double("batt_power_discharge_max_kwac");
 
 			// Power converters and topology
-			batt_vars->batt_topology = vt.as_integer("batt_ac_or_dc");
+			batt_vars->batt_topology = vt.as_boolean("batt_ac_or_dc");
 			batt_vars->batt_ac_dc_efficiency = vt.as_double("batt_ac_dc_efficiency");
 			batt_vars->batt_dc_ac_efficiency = vt.as_double("batt_dc_ac_efficiency");
 			batt_vars->batt_dc_dc_bms_efficiency = vt.as_double("batt_dc_dc_efficiency");
