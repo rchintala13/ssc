@@ -649,6 +649,16 @@ bool compute_module::check_constraints( const std::string &name, std::string &fa
 
 //			if ( ((ssc_number_t)((int)dat.num)) != dat.num )
 //				fail_constraint("number could not be interpreted as an integer: " + util::to_string( (double) dat.num ));
+
+			double intpart;
+			double fracpart = std::modf(dat.num, &intpart);
+			if (fracpart != 0.0) {
+				std::stringstream ss;
+				ss << "number could not be interpreted as an integer: " << (int)(dat.num) << ", double: " << dat.num << ", intpart: " <<  intpart << ", to_string: " << var_data::to_string(dat) << ", fraction: " << fracpart;
+				fail_constraint(ss.str());
+//				fail_constraint("number could not be interpreted as an integer: " + util::to_string((double)dat.num));
+			}
+
 		}
 		else if (expr == "tousched")
 		{
