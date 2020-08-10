@@ -20,9 +20,6 @@ int dummy_for_commercial_gen = sprintf(commercial_gen_path, "%s/test/input_cases
 char load_commercial[256];
 int dummy_for_load = sprintf(load_commercial, "%s/test/input_cases/utility_rate_data/load_commercial.csv", SSCDIR);
 
-char load_residential_subhourly[256];
-int dummy_for_subhourly_load = sprintf(load_residential_subhourly, "%s/test/input_cases/pvsamv1_data/pvsamv1_residential_load_15min.csv", SSCDIR);
-
 void setup_residential_rates(ssc_data_t& data) {
     ssc_data_set_number(data, "en_electricity_rates", 1);
     ssc_data_set_number(data, "ur_en_ts_sell_rate", 0);

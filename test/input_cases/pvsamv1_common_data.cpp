@@ -9,6 +9,7 @@ char subarray1_shading[256] = {};
 char subarray2_shading[256] = {};
 char temperature_path[256] = {};
 char solar_resource_path_15min_fail[256] = {};
+char load_residential_subhourly[256] = {};
 
 int n1 = sprintf(solar_resource_path, "%s/test/input_cases/pvsamv1_data/USA AZ Phoenix (TMY2).csv", SSCDIR);
 int n2 = sprintf(load_profile_path, "%s/test/input_cases/pvsamv1_data/pvsamv1_residential_load.csv", SSCDIR);
@@ -19,6 +20,7 @@ int n6 = sprintf(subarray1_shading, "%s/test/input_cases/pvsamv1_data/subarray1_
 int n7 = sprintf(subarray2_shading, "%s/test/input_cases/pvsamv1_data/subarray2_shading_timestep.csv", SSCDIR);
 int n8 = sprintf(temperature_path, "%s/test/input_cases/battery_data/batt_room_temperature_celsius_60min.csv", SSCDIR);
 int n9 = sprintf(solar_resource_path_15min_fail, "%s/test/input_cases/pvsamv1_data/LosAngeles_WeatherFile_15min_timestamp_fail.csv", SSCDIR);
+int n10 = sprintf(load_residential_subhourly, "%s/test/input_cases/pvsamv1_data/pvsamv1_residential_load_15min.csv", SSCDIR);
 
 
 /**

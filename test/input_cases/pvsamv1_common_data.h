@@ -14,7 +14,7 @@ extern char subarray1_shading[256];
 extern char subarray2_shading[256];
 extern char temperature_path[256];
 extern char solar_resource_path_15min_fail[256];
-
+extern char load_residential_subhourly[256];
 
 /**
 *  Default data for no-financial pvsamv1 run that can be further modified
