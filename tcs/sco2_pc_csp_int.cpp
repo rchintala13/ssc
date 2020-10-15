@@ -1538,7 +1538,7 @@ void C_sco2_phx_air_cooler::solve_T_mc_in_for_cooler_constraint(double W_dot_mc_
 
             opt_P_LP_err = solve_P_LP_in__objective(od_opt_objective, v_call_tracker, od_tol);
 
-            if (opt_P_LP_err == C_sco2_phx_air_cooler::E_TIP_RATIO)
+            if (opt_P_LP_err == C_sco2_phx_air_cooler::E_TIP_RATIO || opt_P_LP_err != 0)
             {   // revert back to previous guess and set T_comp_min
                 ms_cycle_od_par.m_T_mc_in = xy_1.x;  //[K]
 
@@ -1547,10 +1547,10 @@ void C_sco2_phx_air_cooler::solve_T_mc_in_for_cooler_constraint(double W_dot_mc_
                 T_comp_in_min = xy_1.x;     //[K]
             }
 
-            if (opt_P_LP_err != 0)
+            /*if (opt_P_LP_err != 0)
             {
                 throw(C_csp_exception("Off-design at main compressor guess inlet temperature failed"));
-            }
+            }*/
 
             if (mpc_sco2_cycle->solve_OD_mc_cooler_fan_power(ms_od_par.m_T_amb, od_tol, W_dot_fan_local, P_cooler_out) != 0)
             {

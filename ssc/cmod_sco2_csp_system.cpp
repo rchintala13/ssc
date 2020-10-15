@@ -608,22 +608,33 @@ public:
                 od_cases = od_cases_local;
             }
 		}
-        else        // od_generate_udpc
+        else if(is_od_generate_udpc_assigned)        // od_generate_udpc
         {
             if (as_integer("od_T_t_in_mode") == 1)
             {
                 T_htf_hot_des = T_t_in_des;     //[K]
             }
-        
+
+            // UDPC settings that could potentially be user-defined through SSC INPUTS
+                // HTF mass flow
+            double m_dot_htf_ND_low = 0.5;      //[-]
+            double m_dot_htf_ND_high = 1.05;    //[-]
+            int n_m_dot_htf_ND = 12;
+                // HTF temperature
+            double T_htf_delta_cold = 30.0;     //[K--C]
+            double T_htf_delta_hot = 15.0;      //[K--C]
+            int n_T_htf_hot = 4;
+                // Ambient temperature
+            double T_amb_low = 273.15 + 0.0;         //[K]
+            double T_amb_high = std::max(273.15 + 45.0, T_amb_des + 5.0);   //[K]
+            int n_T_amb = T_amb_high - T_amb_low + 1;
+
             std::vector<double> udpc_pars = as_vector_double("od_generate_udpc");
             int n_udpc_pars = udpc_pars.size();
             int n_od_cases_mode_pars = std::min(3, n_udpc_pars-1);
-
-            double m_dot_htf_ND_low = 0.5;      //[-]
-            double m_dot_htf_ND_des = 1.0;          //[-]
-            double m_dot_htf_ND_high = 1.05;    //[-]
-            int n_m_dot_htf_ND = 12;
+            
             assign("udpc_n_m_dot_htf", (ssc_number_t)n_m_dot_htf_ND);
+            double m_dot_htf_ND_des = 1.0;      //[-]
             double m_dot_htf_ND_par_start = m_dot_htf_ND_low;       // m_dot_htf_ND_low - 0.05;    //[-]
             double m_dot_htf_ND_par_end = m_dot_htf_ND_high;        // m_dot_htf_ND_high + 0.05;     //[-]
             double delta_m_dot_htf_ND = (m_dot_htf_ND_par_end - m_dot_htf_ND_par_start) / (double)(n_m_dot_htf_ND - 1);
@@ -632,9 +643,8 @@ public:
             m_dot_htf_ND_levels[1] = m_dot_htf_ND_des;
             m_dot_htf_ND_levels[2] = m_dot_htf_ND_high;
 
-            double T_htf_low = T_htf_hot_des - 30.0;        //[K]
-            double T_htf_high = T_htf_hot_des + 15.0;       //[K]
-            int n_T_htf_hot = 4;
+            double T_htf_low = T_htf_hot_des - T_htf_delta_cold;       //[K]
+            double T_htf_high = T_htf_hot_des + T_htf_delta_hot;       //[K]
             assign("udpc_n_T_htf", (ssc_number_t)n_T_htf_hot);
             double T_htf_par_start = T_htf_low;     // T_htf_low - 5.0;     //[K]
             double T_htf_par_end = T_htf_high;      // T_htf_high + 5.0;      //[K]
@@ -644,9 +654,6 @@ public:
             T_htf_levels[1] = T_htf_hot_des;   //[C]
             T_htf_levels[2] = T_htf_high;  //[C]
 
-            double T_amb_low = 273.15 + 0.0;         //[K]
-            double T_amb_high = std::max(273.15 + 45.0, T_amb_des + 5.0);   //[K]
-            int n_T_amb = T_amb_high - T_amb_low + 1;
             assign("udpc_n_T_amb", (ssc_number_t)n_T_amb);
             double T_amb_par_start = T_amb_low; // 273.15 + 0.0;      //[K]
             double T_amb_par_end = T_amb_high;  // T_amb_high + 1.0;    //[K]
@@ -658,7 +665,7 @@ public:
 
             int n_total_runs = 3 * (n_m_dot_htf_ND + n_T_htf_hot + n_T_amb);
 
-            od_cases.resize_fill(n_total_runs, 6, 1.0);
+            od_cases.resize_fill(n_total_runs, 7, 1.0);
 
             // Set constant cycle operating mode parameters from 'od_generate_udpc'
             for (int i = 0; i < n_total_runs; i++)
@@ -704,6 +711,10 @@ public:
                     od_cases(3*n_T_htf_hot + 3*n_T_amb + i*n_m_dot_htf_ND + j, 2) = T_amb_levels[i] - 273.15;     //[C] convert from K -> levels
                 }
             }
+        }
+        else {
+            log("Off-design cases not properly defined");
+            return;
         }
 		
 		int n_od_runs = (int)od_cases.nrows();
@@ -1284,7 +1295,8 @@ public:
 
 				p_mc_cooler_in_isen_deltah_to_P_mc_out_od[n_run] = (ssc_number_t)-deltah_isen_od;		//[kJ/kg]
 
-                // Columns(7) : HTF Temp[C], HTF ND mass flow[-], Ambient Temp[C], ND Power, ND Heat, ND Fan Power, ND Water
+                // Columns(11) : 0) HTF Temp[C], 1) HTF ND mass flow[-], 2) Ambient Temp[C], 3) ND Power, 4) ND Heat, 5) ND Fan Power, 6) ND Water
+                //               ...... 7) ND PHX deltaT, 8) ND P_co2_PHX_in, 9) ND m_dot_co2_PHX, 10) ND P_co2_turb_in
                 if (is_od_generate_udpc_assigned)
                 {
                     pm_udpc_table[n_run * 11 + 0] = (ssc_number_t)p_T_htf_hot_od[n_run];      //[C]
