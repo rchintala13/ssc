@@ -171,7 +171,8 @@ public:
     lifetime_calendar_t *clone();
 
     /// Given the index of the simulation, the tempertature and SOC, return the effective capacity percent
-    double runLifetimeCalendarModel(size_t lifetimeIndex, double T, double SOC);
+    /// Rohit - Add parameter charge_changed
+    double runLifetimeCalendarModel(size_t lifetimeIndex, double T, double SOC, bool charge_changed);
 
     /// Reset or augment the capacity
     void replaceBattery(double replacement_percent);
@@ -193,6 +194,9 @@ protected:
 
     std::shared_ptr<calendar_state> state;
     std::shared_ptr<lifetime_params> params;
+
+    //Rohit - Add cycle_model object in lifetime_calendar_t
+    std::unique_ptr<lifetime_cycle_t> cycle_model;
 
 private:
     void initialize();
