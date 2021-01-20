@@ -422,7 +422,7 @@ double lifetime_calendar_t::runLifetimeCalendarModel(size_t lifetimeIndex, doubl
         runTableModel();
     //Rohit - run LiionNMCModel
     else if (params->calendar_choice == lifetime_params::CALENDAR_CHOICE::NMC_MODEL)
-        runLithiumIonNMCModel(T, SOC);
+        runLithiumIonNMCModel(T, SOC, charge_changed);
     else
         state->q_relative_calendar = 100;
 
@@ -444,7 +444,7 @@ void lifetime_calendar_t::runLithiumIonModel(double temp, double SOC) {
 }
 
 // Rohit - define Q_li model for Li-ion
-void lifetime_calendar_t::runLithiumIonNMCModel(double temp, double SOC) {
+void lifetime_calendar_t::runLithiumIonNMCModel(double temp, double SOC, bool charge_changed) {
     temp += 273.15;
     SOC *= 0.01;
     // write function to find DOD_max, U_neg, and V_oc
@@ -462,15 +462,20 @@ void lifetime_calendar_t::runLithiumIonNMCModel(double temp, double SOC) {
         * exp((alpha_a_b3 * F / Rug) * (V_oc / temp - V_ref / T_ref))
         * (1+theta*DOD_max);
 
+    if (charge_changed)
+        cycle_model->rainflow(100. - SOC);
+
+    double dn_cycles = cycle_model->get_state().n_cycles;
+
     double k_cal = 0;
     if (state->day_age_of_battery > 0)
-        k_cal = (0.5 * b1) / (sqrt(state->day_age_of_battery));
+        k_cal = (0.5 * b1) / (sqrt(state->day_age_of_battery)) + (b3/tau_b3)*exp(-(state->day_age_of_battery/tau_b3));
     else
         k_cal = 0;
 
     double dq_new;
     if (state->dq_relative_calendar_old == 0)
-        dq_new = k_cal * dt_day;
+        dq_new = k_cal * dt_day + b2*dn_cycles;
     else
         dq_new = k_cal * dt_day + state->dq_relative_calendar_old;
     state->dq_relative_calendar_old = dq_new;

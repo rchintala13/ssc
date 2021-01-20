@@ -186,7 +186,7 @@ protected:
     void runLithiumIonModel(double temp_C, double SOC);
 
     // Rohit - add Q_li for Li_ion model
-    void runLithiumIonNMCModel(double temp_C, double SOC);
+    void runLithiumIonNMCModel(double temp_C, double SOC, bool charge_changed);
 
     void runTableModel();
 
@@ -221,6 +221,7 @@ private:
     double alpha_a_b3 = 0.0066;
     double V_ref = 3.7;
     double theta = 0.135;
+    double tau_b3 = 5;
 
     friend class lifetime_t;
 };
