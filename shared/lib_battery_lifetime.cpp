@@ -438,6 +438,40 @@ void lifetime_calendar_t::runLithiumIonModel(double temp, double SOC) {
     state->q_relative_calendar = (params->calendar_q0 - (dq_new)) * 100;
 }
 
+// Rohit - define Q_li model for Li-ion
+void lifetime_calendar_t::runLithiumIonNMCModel(double temp, double SOC) {
+    temp += 273.15;
+    SOC *= 0.01;
+    // write function to find DOD_max, U_neg, and V_oc
+    double DOD_max = 0.8;
+    double U_neg = 0.1726;
+    double V_oc = 3.6912;
+    //calendar component
+    double b1 = b1_ref * exp(-(Ea_b_1 / Rug) * (1. / temp - 1. / T_ref))
+        * exp((alpha_a_b1 * F / Rug) * (U_neg / temp - U_ref / T_ref))
+        * exp(gamma * pow(DOD_max, beta_b1));
+
+    double b2 = b2_ref * exp(-(Ea_b_2 / Rug) * (1. / temp - 1. / T_ref));
+
+    double b3 = b3_ref * exp(-(Ea_b_3 / Rug) * (1. / temp - 1. / T_ref))
+        * exp((alpha_a_b3 * F / Rug) * (V_oc / temp - V_ref / T_ref))
+        * (1+theta*DOD_max);
+
+    double k_cal = 0;
+    if (state->day_age_of_battery > 0)
+        k_cal = (0.5 * b1) / (sqrt(state->day_age_of_battery));
+    else
+        k_cal = 0;
+
+    double dq_new;
+    if (state->dq_relative_calendar_old == 0)
+        dq_new = k_cal * dt_day;
+    else
+        dq_new = k_cal * dt_day + state->dq_relative_calendar_old;
+    state->dq_relative_calendar_old = dq_new;
+    state->q_relative_calendar = (params->calendar_q0 - (dq_new)) * 100;
+}
+
 void lifetime_calendar_t::runTableModel() {
     size_t n_rows = params->calendar_matrix.nrows();
     size_t n = n_rows - 1;
@@ -542,6 +576,7 @@ lifetime_t::lifetime_t(double dt_hour) {
     params = std::make_shared<lifetime_params>();
     params->dt_hour = dt_hour;
     params->calendar_choice = lifetime_params::CALENDAR_CHOICE::NMC_MODEL;
+    params->calendar_q0 = 1.07;
 
     initialize();
 }

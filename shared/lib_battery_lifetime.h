@@ -184,6 +184,9 @@ public:
 protected:
     void runLithiumIonModel(double temp_C, double SOC);
 
+    // Rohit - add Q_li for Li_ion model
+    void runLithiumIonNMCModel(double temp_C, double SOC);
+
     void runTableModel();
 
     double dt_day;
@@ -196,6 +199,24 @@ private:
 
     /// Rohit - Add Li-ion NMC Kandler Smith parameters
     double Ea_d0_1 = 4126.0;
+    double b1_ref = 0.003503;
+    double Ea_b_1 = 35392.;
+    double Rug = 8.314;
+    double T_ref = 298.15;
+    double alpha_a_b1 = -1;
+    double F = 96485;
+    double U_ref = 0.08;
+    double gamma = 2.472;
+    double beta_b1 = 2.157;
+
+    double b2_ref = 0.00001541;
+    double Ea_b_2 = -42800.;
+
+    double b3_ref = 0.003503;
+    double Ea_b_3 = 42800.;
+    double alpha_a_b3 = 0.0066;
+    double V_ref = 3.7;
+    double theta = 0.135;
 
     friend class lifetime_t;
 };
