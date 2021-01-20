@@ -39,8 +39,9 @@ struct lifetime_params {
     };
 
     // calendar
+    //Rohit adding MODEL_NMC option
     enum CALENDAR_CHOICE {
-        NONE, MODEL, TABLE
+        NONE, MODEL, TABLE, NMC_MODEL
     };
     int calendar_choice;
     double dt_hour;
@@ -193,6 +194,9 @@ protected:
 private:
     void initialize();
 
+    /// Rohit - Add Li-ion NMC Kandler Smith parameters
+    double Ea_d0_1 = 4126.0;
+
     friend class lifetime_t;
 };
 
@@ -224,6 +228,9 @@ public:
     /// Cycle with Calendar model
     lifetime_t(const util::matrix_t<double> &batt_lifetime_matrix,
                double dt_hour, double q0, double a, double b, double c);
+
+    /// Rohit NMC model constructor 
+    lifetime_t(double dt_hour);
 
     /// Cycle with no Calendar
     lifetime_t(const util::matrix_t<double> &batt_lifetime_matrix, double dt_hour);

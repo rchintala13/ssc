@@ -537,6 +537,15 @@ lifetime_t::lifetime_t(const util::matrix_t<double> &batt_lifetime_matrix, doubl
     initialize();
 }
 
+//Rohit Add lifetime_t constructor for NMC_MODEL
+lifetime_t::lifetime_t(double dt_hour) {
+    params = std::make_shared<lifetime_params>();
+    params->dt_hour = dt_hour;
+    params->calendar_choice = lifetime_params::CALENDAR_CHOICE::NMC_MODEL;
+
+    initialize();
+}
+
 lifetime_t::lifetime_t(const util::matrix_t<double> &batt_lifetime_matrix, double dt_hour) {
     params = std::make_shared<lifetime_params>();
     params->dt_hour = dt_hour;

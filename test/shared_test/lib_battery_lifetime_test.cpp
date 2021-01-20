@@ -347,6 +347,8 @@ TEST_F(lib_battery_lifetime_test, runCycleLifetimeTestWithRestPeriod) {
     EXPECT_NEAR(s.range, 90, tol);
     EXPECT_NEAR(s.average_range, 90, tol);
     EXPECT_NEAR(s.n_cycles, 2, tol);
+    //Rohit
+    EXPECT_GT(s.n_cycles, 0, tol);
 }
 
 
